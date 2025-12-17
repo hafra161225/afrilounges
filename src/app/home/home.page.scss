@@ -1,0 +1,225 @@
+ion-content {
+  --padding-start: 12px;
+  --padding-end: 12px;
+  --padding-top: 12px;
+  --padding-bottom: 12px;
+}
+
+ion-progress-bar {
+  margin-bottom: 16px;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 24px;
+
+  h2 {
+    color: #495057;
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+  }
+
+  p {
+    color: #6c757d;
+    font-size: 1rem;
+    margin: 0 0 4px 0;
+  }
+
+  .page-indicator {
+    color: #007bff;
+    font-weight: 500;
+    font-size: 0.9rem;
+    margin: 0;
+  }
+}
+
+ion-card {
+  margin-bottom: 12px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+}
+
+ion-card-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  border-radius: 12px 12px 0 0;
+}
+
+ion-card-title {
+  color: #495057;
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+ion-item {
+  --border-radius: 8px;
+  --padding-start: 12px;
+  --inner-padding-end: 12px;
+  margin-bottom: 6px;
+}
+
+ion-input, ion-datetime {
+  --placeholder-color: #6c757d;
+  --color: #495057;
+}
+
+.navigation-buttons {
+  margin-top: 32px;
+  margin-bottom: 24px;
+
+  ion-col {
+    padding: 0 4px;
+  }
+}
+
+.nav-button {
+  --border-radius: 8px;
+  height: 48px;
+  font-weight: 600;
+
+  &.primary {
+    --background: #007bff;
+    --color: white;
+  }
+}
+
+// Responsive design
+
+// Mobile phones (default, < 576px)
+@media (max-width: 575px) {
+  ion-card-title {
+    font-size: 0.95rem;
+  }
+
+  ion-item {
+    --padding-start: 8px;
+    --inner-padding-end: 8px;
+  }
+
+  .page-header {
+    margin-bottom: 16px;
+
+    h2 {
+      font-size: 1.3rem;
+    }
+
+    p {
+      font-size: 0.9rem;
+    }
+  }
+
+  .navigation-buttons {
+    margin-top: 24px;
+
+    ion-col {
+      padding: 0 2px;
+    }
+  }
+}
+
+// Small tablets (576px - 767px)
+@media (min-width: 576px) and (max-width: 767px) {
+  ion-content {
+    --padding-start: 16px;
+    --padding-end: 16px;
+    --padding-top: 16px;
+    --padding-bottom: 16px;
+  }
+
+  ion-card {
+    margin-bottom: 16px;
+  }
+
+  ion-card-title {
+    font-size: 1.05rem;
+  }
+
+  ion-item {
+    --padding-start: 14px;
+    --inner-padding-end: 14px;
+  }
+
+  .page-header {
+    h2 {
+      font-size: 1.4rem;
+    }
+  }
+}
+
+// Tablets and small desktops (768px - 991px)
+@media (min-width: 768px) and (max-width: 991px) {
+  ion-content {
+    --padding-start: 20px;
+    --padding-end: 20px;
+    --padding-top: 20px;
+    --padding-bottom: 20px;
+  }
+
+  ion-card {
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 20px;
+  }
+
+  ion-card-title {
+    font-size: 1.15rem;
+  }
+
+  .page-header {
+    margin-bottom: 28px;
+
+    h2 {
+      font-size: 1.6rem;
+    }
+  }
+}
+
+// Large desktops (992px+)
+@media (min-width: 992px) {
+  ion-content {
+    --padding-start: 24px;
+    --padding-end: 24px;
+    --padding-top: 24px;
+    --padding-bottom: 24px;
+  }
+
+  ion-card {
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 24px;
+  }
+
+  ion-card-title {
+    font-size: 1.2rem;
+  }
+
+  ion-item {
+    --padding-start: 16px;
+    --inner-padding-end: 16px;
+  }
+
+  .page-header {
+    margin-bottom: 32px;
+
+    h2 {
+      font-size: 1.8rem;
+    }
+
+    p {
+      font-size: 1.1rem;
+    }
+  }
+
+  .navigation-buttons {
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+
+    ion-col {
+      padding: 0 8px;
+    }
+  }
+}

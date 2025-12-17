@@ -1,0 +1,175 @@
+<ion-content [fullscreen]="true">
+  <ion-header collapse="condense">
+    <ion-toolbar>
+      <ion-title size="large">Sales & Stock Summary</ion-title>
+    </ion-toolbar>
+  </ion-header>
+
+  <!-- Progress Indicator -->
+  <ion-progress-bar
+    [value]="getProgress()"
+    color="primary">
+  </ion-progress-bar>
+
+  <!-- Page Title and Description -->
+  <div class="page-header">
+    <h2>{{ pageTitles[currentPage - 1] }}</h2>
+    <p>{{ pageDescriptions[currentPage - 1] }}</p>
+    <p class="page-indicator">Step {{ currentPage }} of {{ totalPages }}</p>
+  </div>
+
+  <form [formGroup]="summaryForm" (ngSubmit)="currentPage === totalPages ? onSubmit() : nextPage()">
+    <!-- Page 1: Basic Information -->
+    <div *ngIf="currentPage === 1">
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Sales & Stock Summary Form</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <ion-item>
+            <ion-label position="floating">Date</ion-label>
+            <ion-datetime
+              formControlName="date"
+              displayFormat="DD/MM/YYYY"
+              placeholder="Select date">
+            </ion-datetime>
+          </ion-item>
+
+          <ion-item>
+            <ion-label position="floating">Outlet/Location</ion-label>
+            <ion-input
+              formControlName="outlet"
+              placeholder="Enter outlet/location">
+            </ion-input>
+          </ion-item>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- Page 2: Sales Summary -->
+    <div *ngIf="currentPage === 2">
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Sales Summary</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+
+          <ion-item>
+            <ion-label position="floating">Money to Agent</ion-label>
+            <ion-input
+              formControlName="moneyToAgent"
+              type="number"
+              placeholder="Enter money to agent">
+            </ion-input>
+          </ion-item>
+
+          <ion-item>
+            <ion-label position="floating">Money to Bank</ion-label>
+            <ion-input
+              formControlName="moneyToBank"
+              type="number"
+              placeholder="Enter money to bank">
+            </ion-input>
+          </ion-item>
+
+          <ion-item>
+            <ion-label position="floating">Cash (On Hand)</ion-label>
+            <ion-input
+              formControlName="cashOnHand"
+              type="number"
+              placeholder="Enter cash on hand"
+              >
+            </ion-input>
+          </ion-item>
+
+          <ion-item>
+            <ion-label position="floating">Total Sales</ion-label>
+            <ion-input
+              formControlName="totalSales"
+              type="number"
+              placeholder="Auto-calculated"
+              readonly>
+            </ion-input>
+          </ion-item>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- Page 3: Stock Values -->
+    <div *ngIf="currentPage === 3">
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Stock Value Summary</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <ion-item>
+            <ion-label position="floating">Opening Stock Value</ion-label>
+            <ion-input
+              formControlName="openingStockValue"
+              type="number"
+              placeholder="Enter opening stock value">
+            </ion-input>
+          </ion-item>
+
+          <ion-item>
+            <ion-label position="floating">Closing Stock Value</ion-label>
+            <ion-input
+              formControlName="closingStockValue"
+              type="number"
+              placeholder="Enter closing stock value">
+            </ion-input>
+          </ion-item>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- Page 4: Final Details -->
+    <div *ngIf="currentPage === 4">
+      <ion-card>
+        <ion-card-content>
+          <ion-item>
+            <ion-label position="floating">Prepared by</ion-label>
+            <ion-input
+              formControlName="preparedBy"
+              placeholder="Enter preparer's name">
+            </ion-input>
+          </ion-item>
+
+          <ion-item>
+            <ion-label position="floating">Verified by</ion-label>
+            <ion-input
+              formControlName="verifiedBy"
+              placeholder="Enter verifier's name">
+            </ion-input>
+          </ion-item>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
+    <!-- Navigation Buttons -->
+    <ion-row class="navigation-buttons">
+      <ion-col *ngIf="currentPage > 1">
+        <ion-button
+          expand="block"
+          fill="outline"
+          (click)="previousPage()"
+          class="nav-button">
+          <ion-icon slot="start" name="chevron-back"></ion-icon>
+          Previous
+        </ion-button>
+      </ion-col>
+
+      <ion-col [size]="currentPage > 1 ? '6' : '12'">
+        <ion-button
+          expand="block"
+          [disabled]="!canGoNext() || isLoading"
+          type="submit"
+          class="nav-button primary">
+          <ion-spinner *ngIf="isLoading" slot="start" name="crescent"></ion-spinner>
+          {{ isLoading ? 'Processing...' : (currentPage === totalPages ? 'Generate Report' : 'Next') }}
+          <ion-icon *ngIf="!isLoading && currentPage < totalPages" slot="end" name="chevron-forward"></ion-icon>
+        </ion-button>
+      </ion-col>
+    </ion-row>
+  </form>
+</ion-content>
