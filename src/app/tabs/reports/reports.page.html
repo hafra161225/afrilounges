@@ -1,0 +1,206 @@
+<ion-content [fullscreen]="true">
+  <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+  <ion-header collapse="condense">
+    <ion-toolbar>
+      <ion-title size="large">Reports</ion-title>
+    </ion-toolbar>
+  </ion-header>
+
+  <!-- Reports Summary -->
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Report History</ion-card-title>
+    </ion-card-header>
+    <ion-card-content>
+      <p>You have {{ reportCount }} reports available</p>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Reports Cards -->
+  <ion-card>
+    <ion-card-header>
+      <ion-card-title>Generated Reports</ion-card-title>
+    </ion-card-header>
+    <ng-container *ngIf="!isLoadingStock; else reportedData">
+      <ion-card-content>
+        <!-- Desktop/Tablet View (Grid Layout) -->
+        <div class="reports-grid" *ngIf="isLargeScreen">
+          <ion-card *ngFor="let report of reportData" class="report-item-card">
+            <ion-card-header class="report-card-header">
+              <div class="report-title-section">
+                <ion-card-title>Daily report {{ report.date }}</ion-card-title>
+                <ion-badge [color]="getStatusColor(report.status)" class="status-badge">
+                  {{ report.status }}
+                </ion-badge>
+              </div>
+              <ion-card-subtitle>{{ report.date | date:'mediumDate' }}</ion-card-subtitle>
+            </ion-card-header>
+
+            <ion-card-content class="report-card-content">
+              <div class="report-details">
+                <div class="detail-item">
+                  <span class="detail-label">Generated</span>
+                  <span class="detail-value">{{ report.date | date:'short' }}</span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">Type</span>
+                  <span class="detail-value">{{ report.type || 'Sales Report' }}</span>
+                </div>
+              </div>
+
+              <div class="report-actions">
+                <ion-button
+                  fill="outline"
+                  (click)="downloadReport(report)"
+                  [disabled]="report.status !== 'completed'"
+                  class="action-btn">
+                  <ion-icon name="download-outline" slot="start"></ion-icon>
+                  Download
+                </ion-button>
+              </div>
+            </ion-card-content>
+          </ion-card>
+        </div>
+
+        <!-- Mobile View (List of Cards) -->
+        <div class="reports-list" *ngIf="!isLargeScreen">
+          <ion-card *ngFor="let report of reportData" class="mobile-report-card">
+            <ion-card-header class="mobile-card-header">
+              <div class="mobile-title-row">
+                <ion-card-title class="mobile-title">Daily report {{ report.date }}</ion-card-title>
+                <ion-badge [color]="getStatusColor(report.status)" class="mobile-status-badge">
+                  {{ report.status }}
+                </ion-badge>
+              </div>
+              <ion-card-subtitle class="mobile-subtitle">{{ report.date | date:'mediumDate' }}</ion-card-subtitle>
+            </ion-card-header>
+
+            <ion-card-content class="mobile-card-content">
+              <div class="mobile-report-details">
+                <div class="mobile-detail">
+                  <span class="mobile-label">Type:</span>
+                  <span class="mobile-value">{{ report.type || 'Sales Report' }}</span>
+                </div>
+              </div>
+
+              <div class="mobile-actions">
+                <ion-button
+                  fill="outline"
+                  size="small"
+                  (click)="downloadReport(report)"
+                  [disabled]="report.status !== 'completed'"
+                  class="mobile-action-btn">
+                  <ion-icon name="download-outline" slot="start"></ion-icon>
+                  Download
+                </ion-button>
+              </div>
+            </ion-card-content>
+          </ion-card>
+        </div>
+      </ion-card-content>
+    </ng-container>
+    <ng-template #reportedData>
+      <ion-card-content>
+        <!-- Desktop/Tablet View (Grid Layout) -->
+        <div class="reports-grid" *ngIf="isLargeScreen">
+          <ion-card class="report-item-card">
+            <ion-card-header class="report-card-header">
+              <div class="report-title-section">
+                <ion-card-title>
+                  <ion-skeleton-text></ion-skeleton-text>
+                </ion-card-title>
+                <ion-badge class="status-badge">
+                  <ion-skeleton-text></ion-skeleton-text>
+                </ion-badge>
+              </div>
+              <ion-card-subtitle>
+                <ion-skeleton-text></ion-skeleton-text>
+              </ion-card-subtitle>
+            </ion-card-header>
+
+            <ion-card-content class="report-card-content">
+              <div class="report-details">
+                <div class="detail-item">
+                  <span class="detail-label">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </span>
+                  <span class="detail-value">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </span>
+                </div>
+                <div class="detail-item">
+                  <span class="detail-label">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </span>
+                  <span class="detail-value">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </span>
+                </div>
+              </div>
+
+              <div class="report-actions">
+                <ion-button
+                  fill="outline"
+                  class="action-btn">
+                  <ion-skeleton-text></ion-skeleton-text>
+                </ion-button>
+              </div>
+            </ion-card-content>
+          </ion-card>
+        </div>
+
+        <!-- Mobile View (List of Cards) -->
+        <div class="reports-list" *ngIf="!isLargeScreen">
+          <ion-card class="mobile-report-card">
+            <ion-card-header class="mobile-card-header">
+              <div class="mobile-title-row">
+                <ion-card-title class="mobile-title">
+                  <ion-skeleton-text></ion-skeleton-text>
+                </ion-card-title>
+                <ion-badge class="mobile-status-badge">
+                  <ion-skeleton-text></ion-skeleton-text>
+                </ion-badge>
+              </div>
+              <ion-card-subtitle class="mobile-subtitle">
+                <ion-skeleton-text></ion-skeleton-text>
+              </ion-card-subtitle>
+            </ion-card-header>
+
+            <ion-card-content class="mobile-card-content">
+              <div class="mobile-report-details">
+                <div class="mobile-detail">
+                  <span class="mobile-label">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </span>
+                  <span class="mobile-value">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </span>
+                </div>
+              </div>
+
+              <div class="mobile-actions">
+                <ion-button
+                  fill="outline"
+                  size="small"
+                  class="mobile-action-btn">
+                  <ion-skeleton-text></ion-skeleton-text>
+                </ion-button>
+              </div>
+            </ion-card-content>
+          </ion-card>
+        </div>
+      </ion-card-content>
+
+    </ng-template>
+  </ion-card>
+
+  
+  <ion-infinite-scroll *ngIf="!isLoadingStock && reportCount>10" threshold="100px" (ionInfinite)="loadMoreReports($event)">
+    <ion-infinite-scroll-content
+      loadingSpinner="bubbles"
+      loadingText="Loading more reports...">
+    </ion-infinite-scroll-content>
+  </ion-infinite-scroll>
+</ion-content>

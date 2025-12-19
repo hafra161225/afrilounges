@@ -1,61 +1,112 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, OnInit, ViewEncapsulation } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
+import { Router } from '@angular/router';
 import {
   IonHeader, IonToolbar, IonTitle,
   IonContent, IonCard, IonCardHeader,
   IonCardTitle, IonCardContent,
   IonItem, IonLabel, IonInput, IonDatetime,
   IonButton, IonProgressBar, IonRow,
-  IonCol, IonIcon, IonSpinner, IonToast
+  IonCol, IonIcon, IonSpinner, IonToast, IonFab, 
+  IonFabButton, RefresherCustomEvent, IonRefresher, 
+  IonRefresherContent, IonSkeletonText
 } from '@ionic/angular/standalone';
-import { ToastController } from '@ionic/angular';
+import { ToastController, AlertController } from '@ionic/angular';
 import { addIcons } from 'ionicons';
 import * as allIcons from 'ionicons/icons';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { saveAs } from 'file-saver';
+import { GetStock } from '../services/get-stock';
+import { AddSale } from '../services/add-sale';
+import { Preferences } from '@capacitor/preferences';
 
 @Component({
   selector: 'app-home',
   templateUrl: 'home.page.html',
   styleUrls: ['home.page.scss'],
+  standalone: true,
+  schemas: [ CUSTOM_ELEMENTS_SCHEMA],
   imports: [
     CommonModule, IonHeader, IonToolbar,
     IonTitle, IonContent, IonCard, IonCardHeader,
     IonCardTitle, IonCardContent, IonItem,
-    IonLabel, IonInput, IonDatetime, IonButton,
+    IonLabel, IonInput, IonButton,
     IonProgressBar, IonRow, IonCol,
-    IonIcon, IonSpinner, IonToast, ReactiveFormsModule
+    IonIcon, IonSpinner, IonToast, ReactiveFormsModule,
+    IonRefresher, IonRefresherContent, IonSkeletonText
   ],
+  encapsulation: ViewEncapsulation.None, // Add this
 })
 export class HomePage implements OnInit {
   summaryForm!: FormGroup;
+  loadStockForm: FormGroup;
   currentPage = 1;
   totalPages = 4;
-  isLoading= false;
+  isLoading = false;
+  isGeneratingReport = false;
+  offset = 0;
+  limit = 5;
+  isLoadingStock: boolean= false;
+  searchWord: any;
+  stockCount:any;
+  afriId:any;
+  searchQuery: any;
+  searchDelay: any;
+  
+  stockData: any[] = [];
+  isLoadingDelete: boolean= false;
+  isLoadingDeleting: boolean= false;
+
+  // Beer stock data (in a real app, this would come from a service)
+  beerStock = [
+    { id: 1, name: 'Castle Lager', type: 'Lager', qty: 35, shots: 25, buyingPrice: 12000, sellingPrice: 15000 },
+    { id: 2, name: 'Carlsberg', type: 'Lager', qty: 28, shots: 18, buyingPrice: 11000, sellingPrice: 14000 },
+    { id: 3, name: 'Heineken', type: 'Lager', qty: 18, shots: 15, buyingPrice: 13000, sellingPrice: 16000 },
+    { id: 4, name: 'Guinness', type: 'Stout', qty: 12, shots: 8, buyingPrice: 15000, sellingPrice: 18000 },
+    { id: 5, name: 'Tusker Lager', type: 'Lager', qty: 42, shots: 21, buyingPrice: 10000, sellingPrice: 13000 }
+  ];
+
+  filteredBeers = [...this.stockData];
+  selectedBeer: any = null;
 
   pageTitles = [
-    'Basic Information',
-    'Sales Summary',
-    'Stock Values',
-    'Final Details'
+    'Beer Selection',
+    'Quantity & Shots',
+    'Payment Method',
+    'Checkout'
   ];
 
   pageDescriptions = [
-    'Enter the date and outlet/location details',
-    'Record sales amounts and distributions',
-    'Enter opening and closing stock values',
-    'Add preparation and verification details'
+    'Select the beer you want to sell',
+    'Enter quantity and shots to sell',
+    'Choose your payment method',
+    'Review and confirm your sale'
+  ];
+
+  paymentMethods = [
+    { value: 'cash_in_hand', label: 'Cash in Hand', icon: 'cash-outline' },
+    { value: 'money_to_agent', label: 'Money to Agent', icon: 'person-outline' },
+    { value: 'money_to_bank', label: 'Money to Bank', icon: 'business-outline' }
   ];
 
   constructor(
     private formBuilder: FormBuilder,
     private http: HttpClient,
-    private toastController: ToastController
+    private toastController: ToastController,
+    private alertController: AlertController,
+    private router: Router,
+    private getStockService: GetStock,
+    private getAddSaleService: AddSale
   ) {
     addIcons(allIcons);
+    this.loadStockForm = this.formBuilder.group({
+      SearchQuery: [null],
+      offset: [this.offset],
+      limit: [this.limit]
+    });
   }
 
   // Custom validator for non-empty strings
@@ -65,6 +116,11 @@ export class HomePage implements OnInit {
       return { required: true };
     }
     return null;
+  }  
+
+  async handleRefresh(event: RefresherCustomEvent){
+    this.loadStock();
+    event.target.complete();
   }
 
   // Toast notification method
@@ -87,43 +143,47 @@ export class HomePage implements OnInit {
   ngOnInit() {
     this.initializeForm();
     this.setupFormCalculations();
+    this.loadStock();
   }
 
   private initializeForm() {
     this.summaryForm = this.formBuilder.group({
-      date: [new Date().toISOString(), Validators.required],
+      // Page 1: Beer Selection
+      selectedBeerId: ['', Validators.required],
+
+      // Page 2: Quantity & Shots
+      quantity: [0, [Validators.required, Validators.min(0)]],
+      shots: [0, [Validators.required, Validators.min(0)]],
+
+      // Page 3: Payment Method
+      paymentMethod: ['', Validators.required],
+
+      // Page 4: Checkout
+      customerName: [''],
+      notes: [''],
       outlet: ['', Validators.required],
-      totalSales: [{value: 0, disabled: false}],
-      moneyToAgent: [0, [Validators.required, Validators.min(0)]],
-      moneyToBank: [0, [Validators.required, Validators.min(0)]],
-      cashOnHand: [0, [Validators.required, Validators.min(0)]],
-      openingStockValue: [0, [Validators.required, Validators.min(0)]],
-      closingStockValue: [0, [Validators.required, Validators.min(0)]],
-      profit: [{value: 0, disabled: false}],
-      preparedBy: ['', [Validators.required, this.nonEmptyStringValidator]],
-      verifiedBy: ['', [Validators.required, this.nonEmptyStringValidator]]
+
+      // Calculated fields
+      totalAmount: [{value: 0, disabled: true}],
+      change: [{value: 0, disabled: true}]
+      
     });
   }
 
   private setupFormCalculations() {
-    // Calculate total sales automatically
-    this.summaryForm.get('cashOnHand')?.valueChanges.subscribe(value => {
-      console.log('Cash on Hand changed:', value);
-      this.calculateTotalSales();
-    });
-    this.summaryForm.get('moneyToAgent')?.valueChanges.subscribe(value => {
-      console.log('Money to Agent changed:', value);
-      this.calculateTotalSales();
-    });
-    this.summaryForm.get('moneyToBank')?.valueChanges.subscribe(value => {
-      console.log('Money to Bank changed:', value);
-      this.calculateTotalSales();
+    // Calculate total amount when quantity changes
+    this.summaryForm.get('quantity')?.valueChanges.subscribe(() => {
+      this.calculateTotalAmount();
     });
 
-    // Calculate profit automatically
-    this.summaryForm.get('totalSales')?.valueChanges.subscribe(() => this.calculateProfit());
-    this.summaryForm.get('openingStockValue')?.valueChanges.subscribe(() => this.calculateProfit());
-    this.summaryForm.get('closingStockValue')?.valueChanges.subscribe(() => this.calculateProfit());
+    // Watch for beer selection changes
+    this.summaryForm.get('selectedBeerId')?.valueChanges.subscribe((beerId) => {
+      this.selectedBeer = this.stockData.find(beer => beer.id === beerId);
+      if (this.selectedBeer) {
+        this.summaryForm.patchValue({ outlet: this.selectedBeer.outlet || '' });
+      }
+      this.calculateTotalAmount();
+    });
 
     // Debug form field changes
     this.summaryForm.get('preparedBy')?.valueChanges.subscribe(value => {
@@ -171,24 +231,34 @@ export class HomePage implements OnInit {
   canGoNext(): boolean {
     switch (this.currentPage) {
       case 1:
-        return (this.summaryForm.get('date')?.valid ?? false) && (this.summaryForm.get('outlet')?.valid ?? false);
+        return (this.summaryForm.get('selectedBeerId')?.valid ?? false);
       case 2:
-        return (this.summaryForm.get('moneyToAgent')?.valid ?? false) &&
-               (this.summaryForm.get('moneyToBank')?.valid ?? false) &&
-               (this.summaryForm.get('cashOnHand')?.valid ?? false);
+        const quantity = this.summaryForm.get('quantity')?.value || 0;
+        const shots = this.summaryForm.get('shots')?.value || 0;
+        const outlet = this.summaryForm.get('outlet')?.value || null;
+        const selectedBeer = this.getSelectedBeer();
+        console.log('Outlet set: ', outlet);
+
+        // Check if either quantity or shots is greater than 0 and within available stock
+        const quantityValid = quantity >= 0 && quantity <= (selectedBeer?.qty || 0);
+        const shotsValid = shots >= 0 && shots <= (selectedBeer?.shots || 0);
+
+        return (quantityValid || shotsValid) &&
+               (this.summaryForm.get('quantity')?.valid ?? false) ||
+               (this.summaryForm.get('shots')?.valid ?? false);
       case 3:
-        return (this.summaryForm.get('openingStockValue')?.valid ?? false) &&
-               (this.summaryForm.get('closingStockValue')?.valid ?? false);
+        return (this.summaryForm.get('paymentMethod')?.valid ?? false);
       case 4:
-        const preparedByValue = this.summaryForm.get('preparedBy')?.value;
-        const verifiedByValue = this.summaryForm.get('verifiedBy')?.value;
-        return (this.summaryForm.get('preparedBy')?.valid ?? false) &&
-               (this.summaryForm.get('verifiedBy')?.valid ?? false) &&
-               preparedByValue?.trim() !== '' &&
-               verifiedByValue?.trim() !== '';
+        // Checkout page - always allow proceeding
+        return true;
       default:
         return false;
     }
+  }
+
+  getSelectedBeer() {
+    const beerId = this.summaryForm.get('selectedBeerId')?.value;
+    return this.stockData.find(beer => beer.id === beerId);
   }
 
   async onSubmit() {
@@ -196,26 +266,34 @@ export class HomePage implements OnInit {
       this.isLoading = true;
 
       try {
-        // Step 1: Generate PDF
-        console.log('Generating PDF...');
+        // Generate today's sales report
         const currentFormData = this.summaryForm.value;
-        const pdfBlob = await this.generatePDF(currentFormData);
+        const pdfBlob = await this.generateSalesReport(currentFormData);
+        console.log('Gaming: ', pdfBlob);
+        console.log('Jack: ', currentFormData);
+        // Send data + PDF together
+        await this.getAddSaleService
+          .addSale(currentFormData, pdfBlob)
+          .toPromise();
 
         // Step 2: Upload to server (with loading state)
-        console.log('Uploading to server...');
-        const fileName = await this.uploadToServer(pdfBlob);
+        // console.log('Uploading to server...');
+        // const fileName = await this.uploadToServer(pdfBlob);
 
         // Step 3: Save PDF file locally (after server response)
         console.log('Saving PDF file locally...');
-        await this.savePDF(pdfBlob, fileName);
+        await this.saveSalePDF(pdfBlob);
 
         // Success message
-        await this.showToast(`PDF report "${fileName}" has been generated, uploaded to server, and saved locally successfully!`, 'success');
+        await this.showToast(`Sale completed! generated and saved.`, 'success');
 
         // Reset form and go back to first page
         this.currentPage = 1;
         this.summaryForm.reset();
         this.initializeForm();
+        this.selectedBeer = null;
+        this.filteredBeers = [...this.stockData];
+        this.loadStock();
 
       } catch (error) {
         console.error('Error during report generation:', error);
@@ -228,8 +306,311 @@ export class HomePage implements OnInit {
     }
   }
 
+  onBeerSearch(event: any) {
+    const value = (event.detail.value || '').trim().toLowerCase();
+    this.searchQuery = value;
+    console.log('Search Query:', this.searchQuery);
+    // Clear previous timer so we wait before sending request
+    clearTimeout(this.searchDelay);
+
+    this.searchDelay = setTimeout(() => {
+      this.loadStock(this.searchQuery);
+    }, 400); // waits 400ms after the user stops typing
+  }
+
+  selectBeer(beer: any) {
+    this.summaryForm.patchValue({
+      selectedBeerId: beer.id,
+      outlet: beer.outlet || ''
+    });
+    this.selectedBeer = beer;
+    this.calculateTotalAmount();
+  }
+
+  calculateTotalAmount() {
+    const quantity = this.summaryForm.get('quantity')?.value || 0;
+    const shots = this.summaryForm.get('shots')?.value || 0;
+    const selectedBeer = this.getSelectedBeer();
+    if (selectedBeer) {
+      const total= 
+        shots > 0
+          ? selectedBeer.sellingPrice * shots   // spirits / shots-based items
+          : quantity * selectedBeer.sellingPrice;          // normal items
+      this.summaryForm.patchValue({ totalAmount: total });
+    }
+  }
+
+  getMaxQuantity(): number {
+    return this.selectedBeer?.qty || 0;
+  }
+
+  getMaxShots(): number {
+    return this.selectedBeer?.shots || 0;
+  }
+
+  getPaymentDescription(methodValue: string): string {
+    switch (methodValue) {
+      case 'cash_in_hand':
+        return 'Pay with cash immediately';
+      case 'money_to_agent':
+        return 'Payment through agent commission';
+      case 'money_to_bank':
+        return 'Bank transfer payment';
+      default:
+        return '';
+    }
+  }
+
+  getPaymentMethodLabel(): string {
+    const method = this.paymentMethods.find(m => m.value === this.summaryForm.get('paymentMethod')?.value);
+    return method ? method.label : '';
+  }
+
   getProgress(): number {
     return this.currentPage / this.totalPages;
+  }
+
+  resetForm() {
+    // Reset form to initial state
+    this.currentPage = 1;
+    this.summaryForm.reset();
+    this.initializeForm();
+
+    // Clear selected beer and reset filtered list
+    this.selectedBeer = null;
+    this.filteredBeers = [...this.stockData];
+
+    // Show confirmation toast
+    this.showToast('Form has been reset', 'success');
+  }
+
+  async downloadTodaysReport() {
+    await this.promptForSignatures();
+  }
+
+  async promptForSignatures() {
+    const alert = await this.alertController.create({
+      header: 'Report Signatures',
+      message: 'Please enter the names for report authorization',
+      inputs: [
+        {
+          name: 'preparedBy',
+          type: 'text',
+          placeholder: 'Prepared by (Full Name)',
+          value: this.summaryForm.get('preparedBy')?.value || '',
+          attributes: {
+            required: true
+          }
+        },
+        {
+          name: 'verifiedBy',
+          type: 'text',
+          placeholder: 'Verified by (Full Name)',
+          value: this.summaryForm.get('verifiedBy')?.value || '',
+          attributes: {
+            required: true
+          }
+        },
+        {
+          name: 'outlet',
+          type: 'text',
+          placeholder: 'Outlet/Location',
+          value: this.summaryForm.get('outlet')?.value || '',
+          attributes: {
+            required: true
+          }
+        }
+      ],
+      buttons: [
+        {
+          text: 'Cancel',
+          role: 'cancel',
+          cssClass: 'secondary',
+        },
+        {
+          text: 'Generate Report',
+          handler: async (data) => {
+            if (data.preparedBy && data.verifiedBy && data.outlet) {
+              // Start processing immediately
+              this.performDownloadAndUpload(data.preparedBy, data.verifiedBy, data.outlet);
+              return true; // Close alert
+            } else {
+              this.showToast('All fields (prepared by, verified by, and outlet) are required', 'warning');
+              return false; // Keep alert open
+            }
+          }
+        }
+      ]
+    });
+
+    await alert.present();
+  }
+
+  async performDownloadAndUpload(preparedBy: string, verifiedBy: string, outlet: string) {
+    try {
+      this.isGeneratingReport = true;
+
+      let reportFormData: any = null;
+
+      try {
+        // First, try to get report data from server
+        const reportData = await this.getReportDataFromServer(preparedBy, verifiedBy, outlet);
+        const finishedData = reportData.data;
+
+        // Create report data object directly from server response
+        reportFormData = {
+          preparedBy: finishedData.preparedBy,
+          verifiedBy: finishedData.verifiedBy,
+          outlet: outlet,
+          cashOnHand: finishedData.cashOnHand,
+          moneyToAgent: finishedData.moneyToAgent,
+          moneyToBank: finishedData.moneyToBank,
+          totalSales: finishedData.totalSales,
+          openingStockValue: finishedData.openingStockValue,
+          closingStockValue: finishedData.closingStockValue,
+          profit: finishedData.profit,
+          date: finishedData.date || new Date().toLocaleDateString()
+        };
+      } catch (serverError) {
+        console.warn('Server request failed, falling back to sales report:', serverError);
+        // reportFormData remains null, will use sales report
+      }
+
+      // Generate PDF - use daily report if server data available, otherwise sales report
+      console.log('Data Being sent: ', reportFormData);
+      let pdfBlob: Blob;
+
+      if (reportFormData && Object.keys(reportFormData).length > 0) {
+        // Generate daily report with server data
+        pdfBlob = await this.generateDailyReport(reportFormData);
+      } else {
+        // Fall back to sales report (individual transaction)
+        pdfBlob = await this.generateSalesReport(this.summaryForm.value);
+      }
+
+      // Save the PDF locally first
+      const fileName = `sales-report-${new Date().toISOString().split('T')[0]}.pdf`;
+      saveAs(pdfBlob, fileName);
+
+      // Upload to server (with report data if available)
+      await this.uploadToServer(pdfBlob, reportFormData);
+
+      // Show success toast
+      this.showToast('Report downloaded and sent to server successfully', 'success');
+      this.loadStock();
+    } catch (error) {
+      console.error('Error processing report:', error);
+      this.showToast('Error processing report', 'danger');
+    } finally {
+      this.isGeneratingReport = false;
+    }
+  }
+
+  async getReportDataFromServer(preparedBy: string, verifiedBy: string, outlet: string): Promise<any> {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+
+    const requestData = {
+      preparedBy: preparedBy,
+      verifiedBy: verifiedBy,
+      outlet: outlet,
+      date: today
+    };
+
+    try {
+      // Replace with your actual server endpoint for getting report data
+      const serverUrl = 'https://afrilounges.teronsoftwares.com/generate-report.php';
+
+      const response: any = await this.http.post(serverUrl, requestData).toPromise();
+      console.log('Report data received from server:', response);
+      const done= response.data;
+      return response;
+    } catch (error) {
+      console.error('Failed to get report data from server:', error);
+      throw error;
+    }
+  }
+
+  navigateToLogin() {
+    this.router.navigate(['/login']);
+  }
+
+  async generateSalesReport(formData: any): Promise<Blob> {
+    const selectedBeer = this.stockData.find(beer => beer.id === formData.selectedBeerId);
+
+    // Create a new jsPDF instance
+    const pdf = new jsPDF();
+
+    // Set font
+    pdf.setFont('helvetica');
+
+    // Add title
+    pdf.setFontSize(20);
+    pdf.setTextColor(40, 40, 40);
+    pdf.text('AfriLounges - Sales Receipt', 20, 30);
+
+    // Add date and time
+    pdf.setFontSize(12);
+    pdf.setTextColor(100, 100, 100);
+    const now = new Date();
+    pdf.text(`Date: ${now.toLocaleDateString()} ${now.toLocaleTimeString()}`, 20, 45);
+    pdf.text(`Receipt #: ${Date.now()}`, 20, 52);
+
+    let yPosition = 70;
+
+    // Customer/Sale Information
+    pdf.setFontSize(14);
+    pdf.setTextColor(60, 60, 60);
+    pdf.text('Sale Details', 20, yPosition);
+    yPosition += 15;
+
+    // Sale details table
+    const saleData = [
+      ['Item', 'Details'],
+      ['Outlet', selectedBeer?.outlet || 'N/A'],
+      ['Beer', selectedBeer?.name || 'N/A'],
+      ['Type', selectedBeer?.type || 'N/A'],
+      ['Quantity', formData.quantity?.toString() || '0'],
+      ['Shots', formData.shots?.toString() || '0'],
+      ['Unit Price', `MWK ${selectedBeer?.sellingPrice?.toLocaleString() || '0'}`],
+      ['Payment Method', this.getPaymentMethodLabel()]
+    ];
+
+    this.drawTable(pdf, saleData, yPosition, 20);
+    yPosition += (saleData.length * 10) + 20;
+
+    // Total section
+    pdf.setFontSize(16);
+    pdf.setTextColor(40, 40, 40);
+    if(formData.quantity > 0){
+      const totalAm= formData.quantity * selectedBeer?.sellingPrice;
+      pdf.text(`Total Amount: MWK ${totalAm?.toLocaleString() || '0'}`, 20, yPosition);
+      yPosition += 20;
+    }else{
+      const totalAmounts= formData.shots * selectedBeer?.sellingPrice;
+      pdf.text(`Total Amount: MWK ${totalAmounts?.toLocaleString() || '0'}`, 20, yPosition);
+      yPosition += 20;
+    }
+
+    // Additional info
+    if (formData.customerName) {
+      pdf.setFontSize(12);
+      pdf.setTextColor(60, 60, 60);
+      pdf.text(`Customer: ${formData.customerName}`, 20, yPosition);
+      yPosition += 10;
+    }
+
+    if (formData.notes) {
+      pdf.text(`Notes: ${formData.notes}`, 20, yPosition);
+      yPosition += 10;
+    }
+
+    // Footer
+    pdf.setFontSize(10);
+    pdf.setTextColor(150, 150, 150);
+    pdf.text('Thank you for your business! - AfriLounges Management System', 20, yPosition);
+
+    // Return the PDF as a Blob
+    return pdf.output('blob');
   }
 
   async generatePDF(formData: any): Promise<Blob> {
@@ -375,24 +756,266 @@ export class HomePage implements OnInit {
     saveAs(pdfBlob, fileName);
   }
 
-  async uploadToServer(pdfBlob: Blob): Promise<string> {
+  async saveSalePDF(pdfBlob: Blob): Promise<void> {
+    const now = new Date();
+    const fileName =
+      `sale-receipt_${now.getFullYear()}-` +
+      `${String(now.getMonth() + 1).padStart(2, '0')}-` +
+      `${String(now.getDate()).padStart(2, '0')}_` +
+      `${String(now.getHours()).padStart(2, '0')}-` +
+      `${String(now.getMinutes()).padStart(2, '0')}-` +
+      `${String(now.getSeconds()).padStart(2, '0')}.pdf`;
+
+    saveAs(pdfBlob, fileName);
+  }
+
+  async generateDailyReport(reportData: any): Promise<Blob> {
+    // Create a new jsPDF instance
+    const pdf = new jsPDF();
+
+    // Set font
+    pdf.setFont('helvetica');
+
+    // Add header with background
+    pdf.setFillColor(70, 130, 180); // Steel blue background
+    pdf.rect(0, 0, 210, 25, 'F');
+
+    // Add title with white text
+    pdf.setFontSize(22);
+    pdf.setTextColor(255, 255, 255);
+    pdf.text('AfriLounges - Daily Report', 20, 18);
+
+    // Add date and outlet with white text
+    pdf.setFontSize(10);
+    pdf.text(`Report Date: ${reportData.date || new Date().toLocaleDateString()}`, 20, 25);
+    pdf.text(`Outlet: ${reportData.outlet || 'N/A'}`, 80, 25);
+    pdf.text(`Generated: ${new Date().toLocaleString()}`, 140, 25);
+
+    let yPosition = 40;
+
+    // Financial Summary Section
+    pdf.setFontSize(16);
+    pdf.setTextColor(70, 130, 180);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Financial Summary', 20, yPosition);
+    yPosition += 8;
+
+    // Add a line under the section title
+    pdf.setDrawColor(70, 130, 180);
+    pdf.setLineWidth(0.5);
+    pdf.line(20, yPosition, 190, yPosition);
+    yPosition += 12;
+
+    // Financial data table
+    const financialData = [
+      ['Description', 'Amount'],
+      ['Cash On Hand', `MWK ${reportData.cashOnHand?.toLocaleString() || '0'}`],
+      ['Money to Agent', `MWK ${reportData.moneyToAgent?.toLocaleString() || '0'}`],
+      ['Money to Bank', `MWK ${reportData.moneyToBank?.toLocaleString() || '0'}`],
+      ['Total Sales', `MWK ${reportData.totalSales?.toLocaleString() || '0'}`]
+    ];
+
+    this.drawDailyReportTable(pdf, financialData, yPosition, 20);
+    yPosition += (financialData.length * 12) + 20;
+
+    // Stock Summary Section
+    pdf.setFontSize(16);
+    pdf.setTextColor(70, 130, 180);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Stock Summary', 20, yPosition);
+    yPosition += 8;
+
+    // Add a line under the section title
+    pdf.setDrawColor(70, 130, 180);
+    pdf.setLineWidth(0.5);
+    pdf.line(20, yPosition, 190, yPosition);
+    yPosition += 12;
+
+    const stockData = [
+      ['Description', 'Value'],
+      ['Opening Stock Value', `MWK ${reportData.openingStockValue?.toLocaleString() || '0'}`],
+      ['Closing Stock Value', `MWK ${reportData.closingStockValue?.toLocaleString() || '0'}`],
+      ['Profit', `MWK ${reportData.profit?.toLocaleString() || '0'}`]
+    ];
+
+    this.drawDailyReportTable(pdf, stockData, yPosition, 20);
+    yPosition += (stockData.length * 12) + 25;
+
+    // Authorization Section
+    pdf.setFontSize(16);
+    pdf.setTextColor(70, 130, 180);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Authorization', 20, yPosition);
+    yPosition += 8;
+
+    // Add a line under the section title
+    pdf.setDrawColor(70, 130, 180);
+    pdf.setLineWidth(0.5);
+    pdf.line(20, yPosition, 190, yPosition);
+    yPosition += 12;
+
+    const authData = [
+      ['Role', 'Name'],
+      ['Prepared by', reportData.preparedBy || ''],
+      ['Verified by', reportData.verifiedBy || '']
+    ];
+
+    this.drawDailyReportTable(pdf, authData, yPosition, 20);
+    yPosition += (authData.length * 12) + 20;
+
+    // Add footer
+    pdf.setFontSize(8);
+    pdf.setTextColor(150, 150, 150);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text('This report was generated automatically by AfriLounges Management System', 20, yPosition);
+    yPosition += 5;
+    pdf.text('© 2024 AfriLounges - All rights reserved', 20, yPosition);
+
+    return pdf.output('blob');
+  }
+
+  drawDailyReportTable(pdf: any, data: string[][], startY: number, startX: number) {
+    const cellPadding = 5;
+    const colWidth = 80;
+    const rowHeight = 12;
+    const numCols = data[0]?.length || 2;
+
+    // Draw table headers
+    pdf.setFontSize(12);
+    pdf.setTextColor(255, 255, 255); // White text
+    pdf.setFillColor(70, 130, 180); // Steel blue background
+
+    // Header row
+    pdf.rect(startX, startY, colWidth * numCols, rowHeight, 'F');
+    for (let col = 0; col < numCols; col++) {
+      pdf.text(data[0][col], startX + col * colWidth + cellPadding, startY + rowHeight - 3);
+    }
+
+    // Draw table rows
+    pdf.setTextColor(0, 0, 0); // Black text
+
+    for (let i = 1; i < data.length; i++) {
+      const y = startY + (i * rowHeight);
+
+      // Alternate row colors
+      if (i % 2 === 1) {
+        pdf.setFillColor(245, 245, 245); // Light gray background
+        pdf.rect(startX, y, colWidth * numCols, rowHeight, 'F');
+      } else {
+        pdf.setFillColor(255, 255, 255); // White background
+        pdf.rect(startX, y, colWidth * numCols, rowHeight, 'F');
+      }
+
+      // Draw cell borders and add text
+      pdf.setDrawColor(200, 200, 200);
+      pdf.setLineWidth(0.1);
+
+      for (let col = 0; col < numCols; col++) {
+        const x = startX + col * colWidth;
+        pdf.rect(x, y, colWidth, rowHeight);
+
+        // Add text with proper alignment
+        const cellText = data[i][col] || '';
+        if (col === 0) {
+          // Left align labels
+          pdf.text(cellText, x + cellPadding, y + rowHeight - 3);
+        } else {
+          // Right align values (numbers)
+          pdf.text(cellText, x + colWidth - cellPadding, y + rowHeight - 3, { align: 'right' });
+        }
+      }
+    }
+  }
+
+  async uploadToServer(pdfBlob: Blob, formData?: any): Promise<string> {
     const fileName = `africanLounges-report-${new Date().toISOString().split('T')[0]}.pdf`;
 
-    const formData = new FormData();
-    formData.append('pdf', pdfBlob, fileName);
-    formData.append('reportData', JSON.stringify(this.summaryForm.value));
-    console.log(formData);
+    const uploadFormData = new FormData();
+    uploadFormData.append('pdf', pdfBlob, fileName);
+    uploadFormData.append('reportData', JSON.stringify(formData || this.summaryForm.value));
+    console.log(uploadFormData);
 
     // Replace with your actual server endpoint
     const serverUrl = 'https://afrilounges.teronsoftwares.com/send-report.php';
 
     try {
-      const response = await this.http.post(serverUrl, formData).toPromise();
+      const response = await this.http.post(serverUrl, uploadFormData).toPromise();
       console.log('Upload successful:', response);
       return fileName;
     } catch (error) {
       console.error('Upload failed:', error);
       throw error;
+    }
+  }
+
+   
+  async loadStock(searchKeyword: any = null) {
+    this.loadStockForm.patchValue({ SearchQuery: searchKeyword, offset: this.offset, limit: this.limit });
+
+    if (this.loadStockForm.invalid) {
+      await this.showToast('Network Error. Please refresh or restart app', 'warning');
+      return;
+    }
+
+    this.isLoadingStock = true;
+        
+    try {
+      // Get form values
+      const formData = this.loadStockForm.value;
+      console.log('Great: ', formData);
+
+      this.getStockService.getStock(formData).subscribe({
+        next: async (response: any) => {
+          this.isLoadingStock = false;
+          
+          if (response && response.success) {
+            const final= response.data;
+            this.stockCount= response.count;
+            console.log(final);
+            if(this.stockCount > 0){
+              this.stockData= (final.posts || final).map((p: any) => {
+                return {
+                  id: p.itemId,
+                  name: p.name,
+                  type: p.type,
+                  qty: p.qty,
+                  shots: p.shots,
+                  buyingPrice: p.buyingPrice,
+                  sellingPrice: p.sellingPrice,
+                  profitMargin: p.profitMargin,
+                  outlet: p.outlet,
+                  createdAt: p.createdAt,
+                };
+              });
+              this.stockCount = this.stockData.length;
+            }else{
+              this.stockData= [];
+              this.stockCount = 0;
+              this.searchWord= searchKeyword;
+              await this.showToast('No results with the word ' + searchKeyword, 'danger');
+            }
+            console.log('Fetching data success:', response);
+          } else {
+            this.stockData= [];
+            this.stockCount= 0;
+            // await this.showToast(response?.message || 'Fetching data failed', 'danger');
+          }
+        },
+        error: async (error: any) => {
+          // await loading.dismiss();
+          this.isLoadingStock = true;
+          console.error('Fetching data error:', error);
+
+          await this.showToast('Fetching data failed. Please try again.', 'danger');
+        }
+      });
+      
+    } catch (error) {
+      // await loading.dismiss();
+      this.isLoadingStock = true;
+      console.error('Unexpected error:', error);
+      
+      await this.showToast('An unexpected error occurred', 'danger');
     }
   }
 }

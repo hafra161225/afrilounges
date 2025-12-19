@@ -1,0 +1,280 @@
+<ion-content [fullscreen]="true">
+  <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+  <ion-header collapse="condense">
+    <ion-toolbar>
+      <ion-title size="large">Dashboard</ion-title>
+    </ion-toolbar>
+  </ion-header>
+
+  <div class="dashboard-content">
+    <h2>Welcome to African Lounges</h2>
+    <p>Manage your sales and stock data efficiently</p>
+
+    <!-- Search Section -->
+    <ion-card class="search-card">
+      <ion-card-content>
+        <ion-item>
+          <ion-icon name="search-outline" slot="start"></ion-icon>
+          <ion-input
+            placeholder="Search beers by name or type..."
+            [(ngModel)]="searchTerm"
+            (ionInput)="onSearchChange($event)"
+            clearInput="true">
+          </ion-input>
+          <ion-button
+            *ngIf="searchTerm"
+            fill="clear"
+            slot="end"
+            (click)="clearSearch()">
+            <ion-icon name="close-outline"></ion-icon>
+          </ion-button>
+        </ion-item>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Beer Inventory Cards -->
+    <ion-card class="beer-inventory-card">
+      <ion-card-header>
+        <ion-card-title>
+          <ion-icon name="beer-outline" slot="start"></ion-icon>
+          Beer Inventory {{ searchTerm ? `(${stockCount} results)` : '' }}
+        </ion-card-title>
+      </ion-card-header>
+      <ng-container *ngIf="!isLoadingStock; else stockLargest">
+        <ion-card-content>
+          <!-- Desktop/Tablet View (Grid Layout) -->
+          <div class="beers-grid" *ngIf="isLargeScreen">
+            <ion-card *ngFor="let beer of stockData" class="beer-item-card">
+              <ion-card-header class="beer-card-header">
+                <div class="beer-title-section">
+                  <ion-card-title>{{ beer.name }}</ion-card-title>
+                  <ion-badge [color]="getStatusColor(getStockStatus(beer.qty))" class="status-badge">
+                    {{ getStockStatus(beer.qty) }}
+                  </ion-badge>
+                </div>
+                <ion-card-subtitle>{{ beer.type }}</ion-card-subtitle>
+                <ion-card-subtitle><b>{{ beer.outlet }}</b></ion-card-subtitle>
+              </ion-card-header>
+
+              <ion-card-content class="beer-card-content">
+                <div class="beer-details-grid">
+                  <div class="detail-item">
+                    <span class="detail-label">Quantity</span>
+                    <span class="detail-value">{{ beer.qty }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Shots</span>
+                    <span class="detail-value">{{ beer.shots }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Buying Price</span>
+                    <span class="detail-value">MWK {{ beer.buyingPrice.toLocaleString() }}</span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">Selling Price</span>
+                    <span class="detail-value">MWK {{ beer.sellingPrice.toLocaleString() }}</span>
+                  </div>
+                  <div class="detail-item full-width">
+                    <span class="detail-label">Margin</span>
+                    <span class="detail-value" [class]="calculateMargin(beer.buyingPrice, beer.sellingPrice) >= 0 ? 'positive' : 'negative'">
+                      {{ calculateMargin(beer.buyingPrice, beer.sellingPrice).toFixed(1) }}%
+                    </span>
+                  </div>
+                </div>
+              </ion-card-content>
+            </ion-card>
+          </div>
+
+          <!-- Mobile View (List of Cards) -->
+          <div class="beers-list" *ngIf="!isLargeScreen">
+            <ion-card *ngFor="let beer of stockData" class="mobile-beer-card">
+              <ion-card-header class="mobile-card-header">
+                <div class="mobile-title-row">
+                  <ion-card-title class="mobile-title">{{ beer.name }}</ion-card-title>
+                  <ion-badge [color]="getStatusColor(getStockStatus(beer.qty))" class="mobile-status-badge">
+                    {{ getStockStatus(beer.qty) }}
+                  </ion-badge>
+                </div>
+                <ion-card-subtitle class="mobile-subtitle">{{ beer.type }}</ion-card-subtitle>
+                <ion-card-subtitle class="mobile-subtitle"><b>{{ beer.outlet }}</b></ion-card-subtitle>
+              </ion-card-header>
+
+              <ion-card-content class="mobile-card-content">
+                <div class="mobile-details-row">
+                  <div class="mobile-detail">
+                    <span class="mobile-label">Qty:</span>
+                    <span class="mobile-value">{{ beer.qty }}</span>
+                  </div>
+                  <div class="mobile-detail">
+                    <span class="mobile-label">Shots:</span>
+                    <span class="mobile-value">{{ beer.shots }}</span>
+                  </div>
+                </div>
+
+                <div class="mobile-price-row">
+                  <div class="mobile-price">
+                    <span class="mobile-price-label">Buy:</span>
+                    <span class="mobile-price-value">MWK {{ beer.buyingPrice.toLocaleString() }}</span>
+                  </div>
+                  <div class="mobile-price">
+                    <span class="mobile-price-label">Sell:</span>
+                    <span class="mobile-price-value">MWK {{ beer.sellingPrice.toLocaleString() }}</span>
+                  </div>
+                  <div class="mobile-margin">
+                    <span class="mobile-margin-label">Margin:</span>
+                    <span class="mobile-margin-value" [class]="calculateMargin(beer.buyingPrice, beer.sellingPrice) >= 0 ? 'positive' : 'negative'">
+                      {{ calculateMargin(beer.buyingPrice, beer.sellingPrice).toFixed(1) }}%
+                    </span>
+                  </div>
+                </div>
+              </ion-card-content>
+            </ion-card>
+          </div>
+        </ion-card-content>
+      </ng-container>
+      <ng-template #stockLargest>
+        <ion-card-content>
+          <!-- Desktop/Tablet View (Grid Layout) -->
+          <div class="beers-grid" *ngIf="isLargeScreen">
+            <ion-card class="beer-item-card">
+              <ion-card-header class="beer-card-header">
+                <div class="beer-title-section">
+                  <ion-card-title>
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </ion-card-title>
+                  <ion-badge class="status-badge">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </ion-badge>
+                </div>
+                <ion-card-subtitle>
+                  <ion-skeleton-text></ion-skeleton-text>
+                </ion-card-subtitle>
+              </ion-card-header>
+
+              <ion-card-content class="beer-card-content">
+                <div class="beer-details-grid">
+                  <div class="detail-item">
+                    <span class="detail-label">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                    <span class="detail-value">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                    <span class="detail-value">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                    <span class="detail-value">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                  </div>
+                  <div class="detail-item">
+                    <span class="detail-label">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                    <span class="detail-value">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                  </div>
+                  <div class="detail-item full-width">
+                    <span class="detail-label">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                    <span class="detail-value">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                  </div>
+                </div>
+              </ion-card-content>
+            </ion-card>
+          </div>
+
+          <!-- Mobile View (List of Cards) -->
+          <div class="beers-list" *ngIf="!isLargeScreen">
+            <ion-card class="mobile-beer-card">
+              <ion-card-header class="mobile-card-header">
+                <div class="mobile-title-row">
+                  <ion-card-title class="mobile-title">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </ion-card-title>
+                  <ion-badge class="mobile-status-badge">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </ion-badge>
+                </div>
+                <ion-card-subtitle class="mobile-subtitle">
+                  <ion-skeleton-text></ion-skeleton-text>
+                </ion-card-subtitle>
+              </ion-card-header>
+
+              <ion-card-content class="mobile-card-content">
+                <div class="mobile-details-row">
+                  <div class="mobile-detail">
+                    <span class="mobile-label">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                    <span class="mobile-value">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                  </div>
+                  <div class="mobile-detail">
+                    <span class="mobile-label">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                    <span class="mobile-value">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                  </div>
+                </div>
+
+                <div class="mobile-price-row">
+                  <div class="mobile-price">
+                    <span class="mobile-price-label">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                    <span class="mobile-price-value">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                  </div>
+                  <div class="mobile-price">
+                    <span class="mobile-price-label">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                    <span class="mobile-price-value">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                  </div>
+                  <div class="mobile-margin">
+                    <span class="mobile-margin-label">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                    <span class="mobile-margin-value">
+                      <ion-skeleton-text></ion-skeleton-text>
+                    </span>
+                  </div>
+                </div>
+              </ion-card-content>
+            </ion-card>
+          </div>
+        </ion-card-content>
+      </ng-template>
+    </ion-card>
+  </div>
+  
+  <ion-infinite-scroll *ngIf="!isLoadingStock && stockCount>10" threshold="100px" (ionInfinite)="loadMoreStock($event)">
+    <ion-infinite-scroll-content
+      loadingSpinner="bubbles"
+      loadingText="Loading more trends...">
+    </ion-infinite-scroll-content>
+  </ion-infinite-scroll>
+</ion-content>

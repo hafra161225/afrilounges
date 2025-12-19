@@ -1,0 +1,230 @@
+ion-content {
+  --padding-start: 12px;
+  --padding-end: 12px;
+  --padding-top: 12px;
+  --padding-bottom: 12px;
+}
+
+.page-header {
+  text-align: center;
+  margin-bottom: 32px;
+  margin-top: 16px;
+
+  h2 {
+    color: #495057;
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin: 0 0 8px 0;
+  }
+
+  p {
+    color: #6c757d;
+    font-size: 1rem;
+    margin: 0;
+  }
+}
+
+ion-card {
+  margin-bottom: 16px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+}
+
+ion-card-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  border-radius: 12px 12px 0 0;
+}
+
+ion-card-title {
+  color: #495057;
+  font-weight: 600;
+  font-size: 1.2rem;
+}
+
+ion-item {
+  --border-radius: 8px;
+  --padding-start: 12px;
+  --inner-padding-end: 12px;
+  margin-bottom: 8px;
+}
+
+ion-input, ion-label {
+  --placeholder-color: #6c757d;
+  --color: #495057;
+}
+
+.login-button-row,
+.back-button-row {
+  margin-top: 24px;
+  margin-bottom: 16px;
+
+  ion-col {
+    padding: 0 4px;
+  }
+}
+
+.login-button {
+  --border-radius: 8px;
+  height: 48px;
+  font-weight: 600;
+  --background: #007bff;
+  --color: white;
+}
+
+.back-button {
+  --border-radius: 8px;
+  height: 44px;
+  font-weight: 500;
+}
+
+.demo-card {
+  margin-top: 16px;
+  margin-bottom: 8px;
+  background-color: #f8f9fa;
+  border: 1px solid #e9ecef;
+
+  ion-card-content {
+    padding: 16px;
+
+    h4 {
+      color: #495057;
+      font-size: 1rem;
+      font-weight: 600;
+      margin: 0 0 12px 0;
+    }
+
+    p {
+      color: #6c757d;
+      font-size: 0.9rem;
+      margin: 4px 0;
+    }
+  }
+}
+
+// Responsive design
+
+// Mobile phones (default, < 576px)
+@media (max-width: 575px) {
+  ion-content {
+    --padding-start: 12px;
+    --padding-end: 12px;
+  }
+
+  .page-header {
+    margin-bottom: 24px;
+
+    h2 {
+      font-size: 1.5rem;
+    }
+
+    p {
+      font-size: 0.95rem;
+    }
+  }
+
+  ion-card-title {
+    font-size: 1.1rem;
+  }
+
+  .login-button-row,
+  .back-button-row {
+    margin-top: 20px;
+
+    ion-col {
+      padding: 0 2px;
+    }
+  }
+}
+
+// Small tablets (576px - 767px)
+@media (min-width: 576px) and (max-width: 767px) {
+  ion-content {
+    --padding-start: 20px;
+    --padding-end: 20px;
+    --padding-top: 20px;
+    --padding-bottom: 20px;
+  }
+
+  ion-card {
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .page-header {
+    h2 {
+      font-size: 1.7rem;
+    }
+  }
+}
+
+// Tablets and small desktops (768px - 991px)
+@media (min-width: 768px) and (max-width: 991px) {
+  ion-content {
+    --padding-start: 24px;
+    --padding-end: 24px;
+    --padding-top: 24px;
+    --padding-bottom: 24px;
+  }
+
+  ion-card {
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .page-header {
+    margin-bottom: 40px;
+
+    h2 {
+      font-size: 2rem;
+    }
+  }
+
+  ion-card-title {
+    font-size: 1.3rem;
+  }
+}
+
+// Large desktops (992px+)
+@media (min-width: 992px) {
+  ion-content {
+    --padding-start: 32px;
+    --padding-end: 32px;
+    --padding-top: 32px;
+    --padding-bottom: 32px;
+  }
+
+  ion-card {
+    max-width: 700px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .page-header {
+    margin-bottom: 48px;
+
+    h2 {
+      font-size: 2.2rem;
+    }
+
+    p {
+      font-size: 1.1rem;
+    }
+  }
+
+  ion-card-title {
+    font-size: 1.4rem;
+  }
+
+  .login-button {
+    height: 52px;
+    font-size: 1.1rem;
+  }
+
+  .back-button {
+    height: 48px;
+    font-size: 1rem;
+  }
+}

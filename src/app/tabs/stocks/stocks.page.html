@@ -1,0 +1,530 @@
+<ion-content [fullscreen]="true">
+  <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+  <ion-header collapse="condense">
+    <ion-toolbar>
+      <ion-title size="large">Stocks</ion-title>
+    </ion-toolbar>
+  </ion-header>
+
+  <!-- Stock Summary Card -->
+   <ng-template #stockSummary>
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>
+          <ion-skeleton-text></ion-skeleton-text>
+        </ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <p>
+          <ion-skeleton-text></ion-skeleton-text>
+        </p>
+        <p>
+          <ion-skeleton-text></ion-skeleton-text>
+        </p>
+      </ion-card-content>
+    </ion-card>
+   </ng-template>
+
+   <ng-container *ngIf="!isLoadingStock; else stockSummary">
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Stock Summary</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+        <p>You have {{ stockCount }} stock item<span *ngIf="stockCount>1">s</span>{{ searchTerm ? ' (filtered)' : '' }}</p>
+        <p>Total Value: MWK {{ totalValue.toLocaleString() }}</p>
+      </ion-card-content>
+    </ion-card>
+   </ng-container>
+
+  <!-- Search Section -->
+  <ion-card class="search-card">
+    <ion-card-content>
+      <ion-item>
+        <ion-icon name="search-outline" slot="start"></ion-icon>
+        <ion-input
+          placeholder="Search stock items..."
+          [(ngModel)]="searchTerm"
+          (ionInput)="onSearchChange($event)"
+          clearInput="true">
+        </ion-input>
+        <ion-button
+          *ngIf="searchTerm"
+          fill="clear"
+          slot="end"
+          (click)="clearSearch()">
+          <ion-icon name="close-outline"></ion-icon>
+        </ion-button>
+      </ion-item>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Stock Items Table -->
+  <ion-card class="stocks-table-card">
+    <ion-card-header>
+      <div class="card-header-content">
+        <ion-card-title>Stock Items</ion-card-title>
+        <ion-button
+          (click)="openAddItemModal()"
+          color="primary"
+          fill="solid"
+          size="small">
+          <ion-icon name="add-outline" slot="start"></ion-icon>
+          Add Item
+        </ion-button>
+      </div>
+    </ion-card-header>
+    <ion-card-content>
+      <!-- Desktop/Tablet View (Grid Layout) -->
+      <div class="stocks-grid" *ngIf="isLargeScreen">
+        <ion-card *ngFor="let item of stockData" class="stock-item-card">
+          <ion-card-header class="stock-card-header">
+            <div class="stock-title-section">
+              <ion-card-title>{{ item.name }}</ion-card-title>
+              <ion-badge [color]="getStatusColor(getStockStatus(item.qty))" class="status-badge">
+                {{ getStockStatus(item.qty) }}
+              </ion-badge>
+            </div>
+            <ion-card-subtitle>{{ item.type }}</ion-card-subtitle>
+            <ion-card-subtitle><b>{{ item.outlet }}</b></ion-card-subtitle>
+          </ion-card-header>
+
+          <ion-card-content class="stock-card-content">
+            <div class="stock-details-grid">
+              <div class="detail-item">
+                <span class="detail-label">Quantity</span>
+                <span class="detail-value">{{ item.qty }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Shots</span>
+                <span class="detail-value">{{ item.shots }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Buying Price</span>
+                <span class="detail-value">MWK {{ item.buyingPrice.toLocaleString() }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Selling Price</span>
+                <span class="detail-value">MWK {{ item.sellingPrice.toLocaleString() }}</span>
+              </div>
+              <div class="detail-item">
+                <span class="detail-label">Margin</span>
+                <span class="detail-value" [class]="calculateMargin(item.buyingPrice, item.sellingPrice) >= 0 ? 'positive' : 'negative'">
+                  {{ calculateMargin(item.buyingPrice, item.sellingPrice).toFixed(1) }}%
+                </span>
+              </div>
+            </div>
+
+            <div class="card-actions">
+              <ion-button fill="outline" (click)="editStockItem(item)" class="action-btn">
+                <ion-icon name="create-outline" slot="start"></ion-icon>
+                Edit
+              </ion-button>
+              <ion-button fill="outline" color="danger" (click)="deleteStockItem(item)" class="action-btn">
+                <ion-icon name="trash-outline" slot="start"></ion-icon>
+                Delete
+              </ion-button>
+            </div>
+          </ion-card-content>
+        </ion-card>
+      </div>
+
+      <!-- Mobile View (List of Cards) -->
+      <div class="stocks-list" *ngIf="!isLargeScreen">
+        <ng-container *ngIf="!isLoadingStock; else stockListLarge">
+          <ion-card *ngFor="let item of stockData" class="mobile-stock-card">
+            <ion-card-header class="mobile-card-header">
+              <div class="mobile-title-row">
+                <ion-card-title class="mobile-title">{{ item.name }}</ion-card-title>
+                <ion-badge [color]="getStatusColor(getStockStatus(item.qty))" class="mobile-status-badge">
+                  {{ getStockStatus(item.qty) }}
+                </ion-badge>
+              </div>
+              <ion-card-subtitle class="mobile-subtitle">{{ item.type }}</ion-card-subtitle>
+            <ion-card-subtitle class="mobile-subtitle"><b>{{ item.outlet }}</b></ion-card-subtitle>
+            </ion-card-header>
+
+            <ion-card-content class="mobile-card-content">
+              <div class="mobile-details-row">
+                <div class="mobile-detail">
+                  <span class="mobile-label">Qty:</span>
+                  <span class="mobile-value">{{ item.qty }}</span>
+                </div>
+                <div class="mobile-detail">
+                  <span class="mobile-label">Shots:</span>
+                  <span class="mobile-value">{{ item.shots }}</span>
+                </div>
+              </div>
+
+              <div class="mobile-price-row">
+                <div class="mobile-price">
+                  <span class="mobile-price-label">Buy:</span>
+                  <span class="mobile-price-value">MWK {{ item.buyingPrice.toLocaleString() }}</span>
+                </div>
+                <div class="mobile-price">
+                  <span class="mobile-price-label">Sell:</span>
+                  <span class="mobile-price-value">MWK {{ item.sellingPrice.toLocaleString() }}</span>
+                </div>
+                <div class="mobile-margin">
+                  <span class="mobile-margin-label">Margin:</span>
+                  <span class="mobile-margin-value" [class]="calculateMargin(item.buyingPrice, item.sellingPrice) >= 0 ? 'positive' : 'negative'">
+                    {{ calculateMargin(item.buyingPrice, item.sellingPrice).toFixed(1) }}%
+                  </span>
+                </div>
+              </div>
+
+              <div class="mobile-actions">
+                <ion-button fill="clear" size="small" (click)="editStockItem(item)" class="mobile-action-btn">
+                  <ion-icon name="create-outline" slot="icon-only"></ion-icon>
+                </ion-button>
+                <ion-button fill="clear" size="small" color="danger" (click)="deleteStockItem(item)" class="mobile-action-btn">
+                  <ion-icon name="trash-outline" slot="icon-only"></ion-icon>
+                </ion-button>
+              </div>
+            </ion-card-content>
+          </ion-card>
+        </ng-container>
+
+        <ng-template #stockListLarge>
+          <ion-card class="mobile-stock-card">
+            <ion-card-header class="mobile-card-header">
+              <div class="mobile-title-row">
+                <ion-card-title class="mobile-title">
+                  <ion-skeleton-text></ion-skeleton-text>
+                </ion-card-title>
+                <ion-badge class="mobile-status-badge">
+                  <ion-skeleton-text></ion-skeleton-text>
+                </ion-badge>
+              </div>
+              <ion-card-subtitle class="mobile-subtitle">
+                <ion-skeleton-text></ion-skeleton-text>
+              </ion-card-subtitle>
+            </ion-card-header>
+
+            <ion-card-content class="mobile-card-content">
+              <div class="mobile-details-row">
+                <div class="mobile-detail">
+                  <span class="mobile-label">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </span>
+                  <span class="mobile-value">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </span>
+                </div>
+                <div class="mobile-detail">
+                  <span class="mobile-label">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </span>
+                  <span class="mobile-value">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </span>
+                </div>
+              </div>
+
+              <div class="mobile-price-row">
+                <div class="mobile-price">
+                  <span class="mobile-price-label">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </span>
+                  <span class="mobile-price-value">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </span>
+                </div>
+                <div class="mobile-price">
+                  <span class="mobile-price-label">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </span>
+                  <span class="mobile-price-value">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </span>
+                </div>
+                <div class="mobile-margin">
+                  <span class="mobile-margin-label">
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </span>
+                  <span class="mobile-margin-value" >
+                    <ion-skeleton-text></ion-skeleton-text>
+                  </span>
+                </div>
+              </div>
+
+              <div class="mobile-actions">
+                <ion-button fill="clear" size="small" class="mobile-action-btn">
+                  <ion-skeleton-text></ion-skeleton-text>
+                </ion-button>
+                <ion-button fill="clear" size="small" class="mobile-action-btn">
+                  <ion-skeleton-text></ion-skeleton-text>
+                </ion-button>
+              </div>
+            </ion-card-content>
+          </ion-card>
+        </ng-template>
+      </div>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Add Item Modal -->
+  <ion-modal [isOpen]="isAddModalOpen" (willDismiss)="closeAddItemModal()">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Add New Item</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="closeAddItemModal()">Close</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+
+      <ion-content class="modal-content">
+        <form [formGroup]="addStockForm" (ngSubmit)="addNewItem()">
+          <ion-card>
+            <ion-card-content>
+
+              <!-- Outlet -->
+              <ion-item>
+                <ion-label position="floating">Outlet</ion-label>
+                <ion-input
+                  formControlName="outlet"
+                  placeholder="Enter your outlet"
+                  required>
+                </ion-input>
+              </ion-item>
+
+              <!-- Name Field -->
+              <ion-item>
+                <ion-label position="floating">Item Name</ion-label>
+                <ion-input
+                  formControlName="name"
+                  placeholder="Enter item name"
+                  required>
+                </ion-input>
+              </ion-item>
+
+              <!-- Type Field -->
+              <ion-item>
+                <ion-label position="floating">Item Type</ion-label>
+                <ion-select
+                  formControlName="type"
+                  placeholder="Select item type"
+                  required>
+                  <ion-select-option
+                    *ngFor="let type of itemTypes"
+                    [value]="type.value">
+                    {{ type.label }}
+                  </ion-select-option>
+                </ion-select>
+              </ion-item>
+
+              <!-- Quantity Field -->
+              <ion-item>
+                <ion-label position="floating">Quantity</ion-label>
+                <ion-input
+                  formControlName="qty"
+                  type="number"
+                  placeholder="Enter quantity"
+                  required>
+                </ion-input>
+              </ion-item>
+
+              <!-- Shots Field -->
+              <ion-item>
+                <ion-label position="floating">Shots</ion-label>
+                <ion-input
+                  formControlName="shots"
+                  type="number"
+                  placeholder="Enter number of shots"
+                  required>
+                </ion-input>
+              </ion-item>
+
+              <!-- Buying Price Field -->
+              <ion-item>
+                <ion-label position="floating">Buying Price (MWK)</ion-label>
+                <ion-input
+                  formControlName="buyingPrice"
+                  name="buyingPrice"
+                  type="number"
+                  placeholder="Enter buying price"
+                  required>
+                </ion-input>
+              </ion-item>
+
+              <!-- Selling Price Field -->
+              <ion-item>
+                <ion-label position="floating">Selling Price (MWK)</ion-label>
+                <ion-input
+                  formControlName="sellingPrice"
+                  name="sellingPrice"
+                  type="number"
+                  placeholder="Enter selling price"
+                  required>
+                </ion-input>
+              </ion-item>
+
+            </ion-card-content>
+          </ion-card>
+
+          <!-- Modal Actions -->
+          <ion-row class="modal-actions">
+            <ion-col size="6">
+              <ion-button
+                expand="block"
+                fill="outline"
+                (click)="closeAddItemModal()"
+                type="button">
+                Cancel
+              </ion-button>
+            </ion-col>
+            <ion-col size="6">
+              <ion-button
+                expand="block"
+                color="primary"
+                type="submit"
+                [disabled]="isLoading || addStockForm.invalid">
+                <ion-spinner *ngIf="isLoading" slot="start" name="crescent"></ion-spinner>
+                {{ isLoading ? 'Adding Item...' : 'Add Item' }}
+              </ion-button>
+            </ion-col>
+          </ion-row>
+        </form>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+
+  <!-- Edit Item Modal -->
+  <ion-modal [isOpen]="isEditModalOpen" (willDismiss)="closeEditModal()">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Edit Stock Item</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="closeEditModal()">Close</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+
+      <ion-content class="modal-content">
+        <form [formGroup]="editStockForm" (ngSubmit)="saveEditItem()">
+          <ion-card>
+            <ion-card-content>
+              
+              <!-- Outlet -->
+              <ion-item>
+                <ion-label position="floating">Outlet</ion-label>
+                <ion-input
+                  formControlName="outlet"
+                  placeholder="Enter your outlet"
+                  required>
+                </ion-input>
+              </ion-item>
+
+              <!-- Name Field -->
+              <ion-item>
+                <ion-label position="floating">Item Name</ion-label>
+                <ion-input
+                  formControlName="name"
+                  placeholder="Enter item name"
+                  required>
+                </ion-input>
+                <input type="hidden" formControlName="itemId" required/>
+              </ion-item>
+
+              <!-- Type Field -->
+              <ion-item>
+                <ion-label position="floating">Item Type</ion-label>
+                <ion-select
+                  formControlName="type"
+                  placeholder="Select item type"
+                  required>
+                  <ion-select-option
+                    *ngFor="let type of itemTypes"
+                    [value]="type.value">
+                    {{ type.label }}
+                  </ion-select-option>
+                </ion-select>
+              </ion-item>
+
+              <!-- Quantity Field -->
+              <ion-item>
+                <ion-label position="floating">Quantity</ion-label>
+                <ion-input
+                  formControlName="qty"
+                  type="number"
+                  placeholder="Enter quantity"
+                  required>
+                </ion-input>
+              </ion-item>
+
+              <!-- Shots Field -->
+              <ion-item>
+                <ion-label position="floating">Shots</ion-label>
+                <ion-input
+                  formControlName="shots"
+                  type="number"
+                  placeholder="Enter number of shots"
+                  required>
+                </ion-input>
+              </ion-item>
+
+              <!-- Buying Price Field -->
+              <ion-item>
+                <ion-label position="floating">Buying Price (MWK)</ion-label>
+                <ion-input
+                  formControlName="buyingPrice"
+                  type="number"
+                  placeholder="Enter buying price"
+                  required>
+                </ion-input>
+              </ion-item>
+
+              <!-- Selling Price Field -->
+              <ion-item>
+                <ion-label position="floating">Selling Price (MWK)</ion-label>
+                <ion-input
+                  formControlName="sellingPrice"
+                  type="number"
+                  placeholder="Enter selling price"
+                  required>
+                </ion-input>
+              </ion-item>
+
+            </ion-card-content>
+          </ion-card>
+
+          <!-- Modal Actions -->
+          <ion-row class="modal-actions">
+            <ion-col size="6">
+              <ion-button
+                expand="block"
+                fill="outline"
+                (click)="closeEditModal()"
+                type="button">
+                Cancel
+              </ion-button>
+            </ion-col>
+            <ion-col size="6">
+              <ion-button
+                expand="block"
+                color="primary"
+                type="submit"
+                [disabled]="editStockForm.invalid">
+                <ion-spinner *ngIf="isLoading" slot="start" name="crescent"></ion-spinner>
+                {{ isLoading ? 'Updating Item...' : 'Update Item' }}
+              </ion-button>
+            </ion-col>
+          </ion-row>
+        </form>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+
+  
+  <ion-infinite-scroll *ngIf="!isLoadingStock && stockCount>10" threshold="100px" (ionInfinite)="loadMoreStock($event)">
+    <ion-infinite-scroll-content
+      loadingSpinner="bubbles"
+      loadingText="Loading more trends...">
+    </ion-infinite-scroll-content>
+  </ion-infinite-scroll>
+</ion-content>

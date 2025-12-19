@@ -1,0 +1,96 @@
+<ion-content [fullscreen]="true">
+  <ion-header collapse="condense">
+    <ion-toolbar>
+      <ion-title size="large">Login</ion-title>
+    </ion-toolbar>
+  </ion-header>
+
+  <!-- Page Header -->
+  <div class="page-header">
+    <h2>Welcome Back</h2>
+    <p>Please sign in to your account</p>
+  </div>
+
+  <!-- Login Form -->
+  <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+    <ion-card>
+      <ion-card-header>
+        <ion-card-title>Sign In</ion-card-title>
+      </ion-card-header>
+      <ion-card-content>
+
+        <!-- Email Field -->
+        <ion-item>
+          <ion-label position="floating">Email Address</ion-label>
+          <ion-input
+            formControlName="email"
+            type="email"
+            placeholder="Enter your email"
+            inputmode="email"
+            autocomplete="email">
+          </ion-input>
+        </ion-item>
+
+        <!-- Password Field -->
+        <ion-item>
+          <ion-label position="floating">Password</ion-label>
+          <ion-input
+            formControlName="password"
+            [type]="showPassword ? 'text' : 'password'"
+            placeholder="Enter your password"
+            autocomplete="current-password">
+          </ion-input>
+          <ion-button
+            fill="clear"
+            slot="end"
+            (click)="togglePasswordVisibility()"
+            type="button">
+            <ion-icon
+              [name]="showPassword ? 'eye-off-outline' : 'eye-outline'"
+              slot="icon-only">
+            </ion-icon>
+          </ion-button>
+        </ion-item>
+
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Login Button -->
+    <ion-row class="login-button-row">
+      <ion-col size="12">
+        <ion-button
+          expand="block"
+          type="submit"
+          [disabled]="isLoading"
+          class="login-button">
+          <ion-spinner *ngIf="isLoading" slot="start" name="crescent"></ion-spinner>
+          <ion-icon *ngIf="!isLoading" slot="start" name="log-in-outline"></ion-icon>
+          {{ isLoading ? 'Signing In...' : 'Sign In' }}
+        </ion-button>
+      </ion-col>
+    </ion-row>
+
+    <!-- Demo Credentials Info -->
+    <ion-card class="demo-card">
+      <ion-card-content>
+        <h4>Demo Credentials</h4>
+        <p><strong>Email:</strong> admin@africanlounges.com</p>
+        <p><strong>Password:</strong> password123</p>
+      </ion-card-content>
+    </ion-card>
+
+    <!-- Back to Home Button -->
+    <ion-row class="back-button-row">
+      <ion-col size="12">
+        <ion-button
+          expand="block"
+          fill="outline"
+          (click)="navigateToHome()"
+          type="button"
+          class="back-button">
+          Back to Home
+        </ion-button>
+      </ion-col>
+    </ion-row>
+  </form>
+</ion-content>

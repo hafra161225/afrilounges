@@ -1,4 +1,7 @@
 <ion-content [fullscreen]="true">
+  <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
   <ion-header collapse="condense">
     <ion-toolbar>
       <ion-title size="large">Sales & Stock Summary</ion-title>
@@ -19,129 +22,256 @@
   </div>
 
   <form [formGroup]="summaryForm" (ngSubmit)="currentPage === totalPages ? onSubmit() : nextPage()">
-    <!-- Page 1: Basic Information -->
+    <!-- Page 1: Beer Selection -->
     <div *ngIf="currentPage === 1">
       <ion-card>
         <ion-card-header>
-          <ion-card-title>Sales & Stock Summary Form</ion-card-title>
+          <ion-card-title>Beer Selection</ion-card-title>
         </ion-card-header>
         <ion-card-content>
+          <!-- Search Input -->
           <ion-item>
-            <ion-label position="floating">Date</ion-label>
-            <ion-datetime
-              formControlName="date"
-              displayFormat="DD/MM/YYYY"
-              placeholder="Select date">
-            </ion-datetime>
-          </ion-item>
-
-          <ion-item>
-            <ion-label position="floating">Outlet/Location</ion-label>
+            <ion-icon name="search-outline" slot="start"></ion-icon>
             <ion-input
-              formControlName="outlet"
-              placeholder="Enter outlet/location">
+              placeholder="Search beers..."
+              (ionInput)="onBeerSearch($event)">
             </ion-input>
           </ion-item>
+
+          <!-- Beer List -->
+          <ng-container *ngIf="!isLoadingStock; else beerTemplate">
+            <div class="beer-selection-list">
+              <ion-card
+                *ngFor="let beer of stockData"
+                [class.selected]="summaryForm.get('selectedBeerId')?.value === beer.id"
+                (click)="selectBeer(beer)"
+                class="beer-card">
+                <ion-card-content class="beer-card-content">
+                  <div class="beer-info">
+                    <h3>{{ beer.name }}</h3>
+                    <p>{{ beer.type }} • MWK {{ beer.sellingPrice.toLocaleString() }}</p>
+                    <p>Outlet: {{ beer.outlet }}</p>
+                    <small>Stock: {{ beer.qty }} qty • {{ beer.shots }} shots</small>
+                  </div>
+                  <ion-icon
+                    *ngIf="summaryForm.get('selectedBeerId')?.value === beer.id"
+                    name="checkmark-circle"
+                    color="success"
+                    class="selection-icon">
+                  </ion-icon>
+                </ion-card-content>
+              </ion-card>
+            </div>
+          </ng-container>
+
+          <ng-template #beerTemplate>
+            <div class="beer-selection-list">
+              <ion-card
+                class="beer-card">
+                <ion-card-content class="beer-card-content">
+                  <div class="beer-info">
+                    <h3>
+                      <ion-text-skeleton></ion-text-skeleton>
+                    </h3>
+                    <p>
+                      <ion-text-skeleton></ion-text-skeleton>
+                    </p>
+                    <small>
+                      <ion-text-skeleton></ion-text-skeleton>
+                    </small>
+                  </div>
+                  <ion-icon
+                    class="selection-icon">
+                      <ion-text-skeleton></ion-text-skeleton>
+                  </ion-icon>
+                </ion-card-content>
+              </ion-card>
+            </div>
+          </ng-template>
+
+          <!-- Selected Beer Display -->
+          <div *ngIf="selectedBeer" class="selected-beer-display">
+            <ion-card class="selected-card">
+              <ion-card-content>
+                <h4>Selected: {{ selectedBeer.name }}</h4>
+                <p>Type: {{ selectedBeer.type }}</p>
+                <p>Outlet: {{ selectedBeer.outlet }}</p>
+                <p>Price: MWK {{ selectedBeer.sellingPrice.toLocaleString() }}</p>
+              </ion-card-content>
+            </ion-card>
+          </div>
         </ion-card-content>
       </ion-card>
     </div>
 
-    <!-- Page 2: Sales Summary -->
+    <!-- Page 2: Quantity & Shots -->
     <div *ngIf="currentPage === 2">
       <ion-card>
         <ion-card-header>
-          <ion-card-title>Sales Summary</ion-card-title>
+          <ion-card-title>Quantity & Shots</ion-card-title>
         </ion-card-header>
         <ion-card-content>
+          <!-- Selected Beer Info -->
+          <div *ngIf="selectedBeer" class="beer-summary">
+            <ion-card class="summary-card">
+              <ion-card-content>
+                <h4>{{ selectedBeer.name }}</h4>
+                <p>Available: {{ selectedBeer.qty }} qty • {{ selectedBeer.shots }} shots</p>
+                <p>Price: MWK {{ selectedBeer.sellingPrice.toLocaleString() }} each</p>
+              </ion-card-content>
+            </ion-card>
+          </div>
 
+          <!-- Quantity Input -->
           <ion-item>
-            <ion-label position="floating">Money to Agent</ion-label>
+            <ion-label position="floating">Quantity</ion-label>
             <ion-input
-              formControlName="moneyToAgent"
+              formControlName="quantity"
               type="number"
-              placeholder="Enter money to agent">
+              [min]="0"
+              [max]="getMaxQuantity()"
+              placeholder="Enter quantity">
             </ion-input>
           </ion-item>
+          <p class="validation-text" *ngIf="summaryForm.get('quantity')?.value > getMaxQuantity()">
+            ⚠️ Cannot exceed available stock ({{ getMaxQuantity() }})
+          </p>
 
+          <!-- Shots Input -->
           <ion-item>
-            <ion-label position="floating">Money to Bank</ion-label>
+            <ion-label position="floating">Shots</ion-label>
             <ion-input
-              formControlName="moneyToBank"
+              formControlName="shots"
               type="number"
-              placeholder="Enter money to bank">
+              [min]="0"
+              [max]="getMaxShots()"
+              placeholder="Enter shots">
             </ion-input>
           </ion-item>
+          <p class="validation-text" *ngIf="summaryForm.get('shots')?.value > getMaxShots()">
+            ⚠️ Cannot exceed available shots ({{ getMaxShots() }})
+          </p>
 
-          <ion-item>
-            <ion-label position="floating">Cash (On Hand)</ion-label>
-            <ion-input
-              formControlName="cashOnHand"
-              type="number"
-              placeholder="Enter cash on hand"
-              >
-            </ion-input>
-          </ion-item>
-
-          <ion-item>
-            <ion-label position="floating">Total Sales</ion-label>
-            <ion-input
-              formControlName="totalSales"
-              type="number"
-              placeholder="Auto-calculated"
-              readonly>
-            </ion-input>
-          </ion-item>
+          <!-- Total Amount Display -->
+          <ion-card class="total-card">
+            <ion-card-content>
+              <div class="total-display">
+                <h3>Total Amount</h3>
+                <p class="total-amount">MWK {{ summaryForm.get('totalAmount')?.value?.toLocaleString() || '0' }}</p>
+              </div>
+            </ion-card-content>
+          </ion-card>
         </ion-card-content>
       </ion-card>
     </div>
 
-    <!-- Page 3: Stock Values -->
+    <!-- Page 3: Payment Method -->
     <div *ngIf="currentPage === 3">
       <ion-card>
         <ion-card-header>
-          <ion-card-title>Stock Value Summary</ion-card-title>
+          <ion-card-title>Payment Method</ion-card-title>
         </ion-card-header>
         <ion-card-content>
-          <ion-item>
-            <ion-label position="floating">Opening Stock Value</ion-label>
-            <ion-input
-              formControlName="openingStockValue"
-              type="number"
-              placeholder="Enter opening stock value">
-            </ion-input>
-          </ion-item>
+          <!-- Order Summary -->
+          <div class="order-summary">
+            <ion-card class="summary-card">
+              <ion-card-content>
+                <h4>Order Summary</h4>
+                <p>{{ selectedBeer?.name }} × {{ summaryForm.get('quantity')?.value }}</p>
+                <p>Shots: {{ summaryForm.get('shots')?.value }}</p>
+                <p class="total-line">Total: MWK {{ summaryForm.get('totalAmount')?.value?.toLocaleString() }}</p>
+              </ion-card-content>
+            </ion-card>
+          </div>
 
-          <ion-item>
-            <ion-label position="floating">Closing Stock Value</ion-label>
-            <ion-input
-              formControlName="closingStockValue"
-              type="number"
-              placeholder="Enter closing stock value">
-            </ion-input>
-          </ion-item>
+          <!-- Payment Method Selection -->
+          <div class="payment-methods">
+            <ion-card
+              *ngFor="let method of paymentMethods"
+              [class.selected]="summaryForm.get('paymentMethod')?.value === method.value"
+              (click)="summaryForm.patchValue({ paymentMethod: method.value })"
+              class="payment-card">
+              <ion-card-content class="payment-card-content">
+                <div class="payment-info">
+                  <ion-icon [name]="method.icon" class="payment-icon"></ion-icon>
+                  <div>
+                    <h4>{{ method.label }}</h4>
+                    <p>{{ getPaymentDescription(method.value) }}</p>
+                  </div>
+                </div>
+                <ion-icon
+                  *ngIf="summaryForm.get('paymentMethod')?.value === method.value"
+                  name="checkmark-circle"
+                  color="success"
+                  class="selection-icon">
+                </ion-icon>
+              </ion-card-content>
+            </ion-card>
+          </div>
         </ion-card-content>
       </ion-card>
     </div>
 
-    <!-- Page 4: Final Details -->
+    <!-- Page 4: Checkout -->
     <div *ngIf="currentPage === 4">
       <ion-card>
+        <ion-card-header>
+          <ion-card-title>Checkout</ion-card-title>
+        </ion-card-header>
         <ion-card-content>
+          <!-- Final Order Summary -->
+          <div class="final-summary">
+            <ion-card class="summary-card">
+              <ion-card-content>
+                <h4>Final Order Summary</h4>
+                <div class="summary-item">
+                  <span>Beer:</span>
+                  <strong>{{ selectedBeer?.name }}</strong>
+                </div>
+                <div class="summary-item">
+                  <span>Quantity:</span>
+                  <strong>{{ summaryForm.get('quantity')?.value }}</strong>
+                </div>
+                <div class="summary-item">
+                  <span>Shots:</span>
+                  <strong>{{ summaryForm.get('shots')?.value }}</strong>
+                </div>
+                <div class="summary-item">
+                  <span>Payment:</span>
+                  <strong>{{ getPaymentMethodLabel() }}</strong>
+                </div>
+                <hr>
+                <div class="summary-item total-line">
+                  <span>Total Amount:</span>
+                  <strong>MWK {{ summaryForm.get('totalAmount')?.value?.toLocaleString() }}</strong>
+                </div>
+              </ion-card-content>
+            </ion-card>
+          </div>
+
+          <!-- Additional Details -->
+
           <ion-item>
-            <ion-label position="floating">Prepared by</ion-label>
+            <ion-label position="floating">Customer Name (Optional)</ion-label>
             <ion-input
-              formControlName="preparedBy"
-              placeholder="Enter preparer's name">
+              formControlName="customerName"
+              placeholder="Enter customer name">
             </ion-input>
           </ion-item>
 
           <ion-item>
-            <ion-label position="floating">Verified by</ion-label>
+            <ion-label position="floating">Notes (Optional)</ion-label>
             <ion-input
-              formControlName="verifiedBy"
-              placeholder="Enter verifier's name">
+              formControlName="notes"
+              placeholder="Any additional notes">
             </ion-input>
           </ion-item>
+
+          <!-- Confirmation Message -->
+          <div class="confirmation-message">
+            <ion-icon name="checkmark-circle" color="success"></ion-icon>
+            <p>Ready to complete the sale. Click "Generate Report" to process and generate today's report.</p>
+          </div>
         </ion-card-content>
       </ion-card>
     </div>
@@ -166,10 +296,37 @@
           type="submit"
           class="nav-button primary">
           <ion-spinner *ngIf="isLoading" slot="start" name="crescent"></ion-spinner>
-          {{ isLoading ? 'Processing...' : (currentPage === totalPages ? 'Generate Report' : 'Next') }}
+          {{ isLoading ? 'Processing...' : (currentPage === totalPages ? 'Complete Sale' : 'Next') }}
           <ion-icon *ngIf="!isLoading && currentPage < totalPages" slot="end" name="chevron-forward"></ion-icon>
         </ion-button>
       </ion-col>
     </ion-row>
   </form>
+
+  <!-- Floating Action Button -->
+  <ion-fab vertical="bottom" horizontal="end" slot="fixed">
+    <ion-fab-button [disabled]="isGeneratingReport">
+      <ion-icon name="menu"></ion-icon>
+    </ion-fab-button>
+    <ion-fab-list side="top">
+      <ion-fab-button (click)="navigateToLogin()" color="primary" [disabled]="isGeneratingReport">
+        <ion-icon name="log-in-outline"></ion-icon>
+      </ion-fab-button>
+      <ion-fab-button (click)="downloadTodaysReport()" color="success" [disabled]="isGeneratingReport">
+        <ion-icon name="download-outline"></ion-icon>
+      </ion-fab-button>
+      <ion-fab-button (click)="resetForm()" color="danger" [disabled]="isGeneratingReport">
+        <ion-icon name="refresh-outline"></ion-icon>
+      </ion-fab-button>
+    </ion-fab-list>
+  </ion-fab>
+
+  <!-- Loading overlay for report generation -->
+  <div *ngIf="isGeneratingReport" class="loading-overlay">
+    <div class="loading-content">
+      <ion-spinner name="crescent" color="primary"></ion-spinner>
+      <h3>Generating Report...</h3>
+      <p>Please wait while we process your report</p>
+    </div>
+  </div>
 </ion-content>
