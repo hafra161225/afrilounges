@@ -276,6 +276,75 @@
       </ion-card>
     </div>
 
+    <!-- Page 5: Authentication -->
+    <div *ngIf="currentPage === 5">
+      <ion-card>
+        <ion-card-header>
+          <ion-card-title>Authentication Required</ion-card-title>
+        </ion-card-header>
+        <ion-card-content>
+          <p class="auth-description">Please enter your credentials to complete the sale and generate the report.</p>
+
+          <ion-item>
+            <ion-label position="floating">Username</ion-label>
+            <ion-input
+              formControlName="userName"
+              type="text"
+              placeholder="Enter your username"
+              required>
+            </ion-input>
+          </ion-item>
+
+          <ion-item>
+            <ion-label position="floating">Password</ion-label>
+            <ion-input
+              formControlName="password"
+              type="password"
+              placeholder="Enter your password"
+              required>
+              <ion-input-password-toggle slot="end"></ion-input-password-toggle>
+            </ion-input>
+          </ion-item>
+
+          <!-- Sale Summary for Authentication Page -->
+          <div class="auth-summary">
+            <ion-card class="summary-card">
+              <ion-card-content>
+                <h4>Sale Summary</h4>
+                <div class="summary-item">
+                  <span>Beer:</span>
+                  <strong>{{ selectedBeer?.name }}</strong>
+                </div>
+                <div class="summary-item">
+                  <span>Quantity:</span>
+                  <strong>{{ summaryForm.get('quantity')?.value }}</strong>
+                </div>
+                <div class="summary-item">
+                  <span>Shots:</span>
+                  <strong>{{ summaryForm.get('shots')?.value }}</strong>
+                </div>
+                <div class="summary-item">
+                  <span>Payment:</span>
+                  <strong>{{ getPaymentMethodLabel() }}</strong>
+                </div>
+                <hr>
+                <div class="summary-item total-line">
+                  <span>Total:</span>
+                  <strong>MWK {{ summaryForm.get('totalAmount')?.value?.toLocaleString() }}</strong>
+                </div>
+              </ion-card-content>
+            </ion-card>
+          </div>
+
+          <!-- Final Confirmation Message -->
+          <div class="confirmation-message">
+            <ion-icon name="shield-checkmark" color="primary"></ion-icon>
+            <p>Your credentials will be verified before completing the sale and generating the report.</p>
+          </div>
+        </ion-card-content>
+      </ion-card>
+    </div>
+
     <!-- Navigation Buttons -->
     <ion-row class="navigation-buttons">
       <ion-col *ngIf="currentPage > 1">

@@ -1,4 +1,4 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA, OnInit, ViewEncapsulation } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, OnInit, ViewEncapsulation, ChangeDetectorRef } from '@angular/core';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, AbstractControl, ValidationErrors } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
@@ -11,9 +11,9 @@ import {
   IonButton, IonProgressBar, IonRow,
   IonCol, IonIcon, IonSpinner, IonToast, IonFab, 
   IonFabButton, RefresherCustomEvent, IonRefresher, 
-  IonRefresherContent, IonSkeletonText
+  IonRefresherContent, IonSkeletonText, IonFabList,
+  ToastController, AlertController, IonInputPasswordToggle
 } from '@ionic/angular/standalone';
-import { ToastController, AlertController } from '@ionic/angular';
 import { addIcons } from 'ionicons';
 import * as allIcons from 'ionicons/icons';
 import jsPDF from 'jspdf';
@@ -22,6 +22,9 @@ import { saveAs } from 'file-saver';
 import { GetStock } from '../services/get-stock';
 import { AddSale } from '../services/add-sale';
 import { Preferences } from '@capacitor/preferences';
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { Share } from '@capacitor/share';
+import { Capacitor } from '@capacitor/core';
 
 @Component({
   selector: 'app-home',
@@ -36,7 +39,8 @@ import { Preferences } from '@capacitor/preferences';
     IonLabel, IonInput, IonButton,
     IonProgressBar, IonRow, IonCol,
     IonIcon, IonSpinner, IonToast, ReactiveFormsModule,
-    IonRefresher, IonRefresherContent, IonSkeletonText
+    IonRefresher, IonRefresherContent, IonSkeletonText,IonFab, 
+    IonFabButton, IonFabList, IonInputPasswordToggle
   ],
   encapsulation: ViewEncapsulation.None, // Add this
 })
@@ -44,7 +48,7 @@ export class HomePage implements OnInit {
   summaryForm!: FormGroup;
   loadStockForm: FormGroup;
   currentPage = 1;
-  totalPages = 4;
+  totalPages = 5;
   isLoading = false;
   isGeneratingReport = false;
   offset = 0;
@@ -76,14 +80,16 @@ export class HomePage implements OnInit {
     'Beer Selection',
     'Quantity & Shots',
     'Payment Method',
-    'Checkout'
+    'Checkout',
+    'Authentication'
   ];
 
   pageDescriptions = [
     'Select the beer you want to sell',
     'Enter quantity and shots to sell',
     'Choose your payment method',
-    'Review and confirm your sale'
+    'Review and confirm your sale',
+    'Enter your credentials to complete the sale'
   ];
 
   paymentMethods = [
@@ -99,7 +105,8 @@ export class HomePage implements OnInit {
     private alertController: AlertController,
     private router: Router,
     private getStockService: GetStock,
-    private getAddSaleService: AddSale
+    private getAddSaleService: AddSale,
+    private cdr: ChangeDetectorRef
   ) {
     addIcons(allIcons);
     this.loadStockForm = this.formBuilder.group({
@@ -162,6 +169,10 @@ export class HomePage implements OnInit {
       customerName: [''],
       notes: [''],
       outlet: ['', Validators.required],
+
+      // Page 5: Authentication
+      userName: ['', Validators.required],
+      password: ['', Validators.required],
 
       // Calculated fields
       totalAmount: [{value: 0, disabled: true}],
@@ -240,17 +251,21 @@ export class HomePage implements OnInit {
         console.log('Outlet set: ', outlet);
 
         // Check if either quantity or shots is greater than 0 and within available stock
-        const quantityValid = quantity >= 0 && quantity <= (selectedBeer?.qty || 0);
-        const shotsValid = shots >= 0 && shots <= (selectedBeer?.shots || 0);
+        // Valid if: (quantity > 0 AND shots == 0 AND quantity <= available stock) OR
+        //          (shots > 0 AND quantity == 0 AND shots <= available shots)
+        const quantityValid = quantity > 0 && shots === 0 && quantity <= (selectedBeer?.qty || 0);
+        const shotsValid = shots > 0 && quantity === 0 && shots <= (selectedBeer?.shots || 0);
 
-        return (quantityValid || shotsValid) &&
-               (this.summaryForm.get('quantity')?.valid ?? false) ||
-               (this.summaryForm.get('shots')?.valid ?? false);
+        return (quantityValid || shotsValid);
       case 3:
         return (this.summaryForm.get('paymentMethod')?.valid ?? false);
       case 4:
         // Checkout page - always allow proceeding
         return true;
+      case 5:
+        // Authentication page - validate username and password
+        return (this.summaryForm.get('userName')?.valid ?? false) &&
+               (this.summaryForm.get('password')?.valid ?? false);
       default:
         return false;
     }
@@ -264,46 +279,69 @@ export class HomePage implements OnInit {
   async onSubmit() {
     if (this.summaryForm.valid) {
       this.isLoading = true;
+      this.cdr.detectChanges(); // Force change detection to show loading state immediately
 
-      try {
-        // Generate today's sales report
-        const currentFormData = this.summaryForm.value;
-        const pdfBlob = await this.generateSalesReport(currentFormData);
-        console.log('Gaming: ', pdfBlob);
-        console.log('Jack: ', currentFormData);
-        // Send data + PDF together
-        await this.getAddSaleService
-          .addSale(currentFormData, pdfBlob)
-          .toPromise();
+      // Generate today's sales report asynchronously to prevent UI blocking
+      const currentFormData = this.summaryForm.value;
 
-        // Step 2: Upload to server (with loading state)
-        // console.log('Uploading to server...');
-        // const fileName = await this.uploadToServer(pdfBlob);
+      // Use setTimeout to make PDF generation non-blocking
+      setTimeout(async () => {
+          try {
+            const pdfBlob = await this.generateSalesReport(currentFormData);
+            console.log('Gaming: ', pdfBlob);
+            console.log('Jack: ', currentFormData);
 
-        // Step 3: Save PDF file locally (after server response)
-        console.log('Saving PDF file locally...');
-        await this.saveSalePDF(pdfBlob);
+            this.getAddSaleService.addSale(currentFormData, pdfBlob).subscribe({
+          next: async (response: any) => {
+            console.log('Response', response);
+            
+            if (response && response.success) {
+              this.isLoading = false;
+              this.cdr.detectChanges();
 
-        // Success message
-        await this.showToast(`Sale completed! generated and saved.`, 'success');
+              // Step 3: Save PDF file locally (after server response)
+              console.log('Saving PDF file locally...');
+              await this.saveSalePDF(pdfBlob);
 
-        // Reset form and go back to first page
-        this.currentPage = 1;
-        this.summaryForm.reset();
-        this.initializeForm();
-        this.selectedBeer = null;
-        this.filteredBeers = [...this.stockData];
-        this.loadStock();
+              // Success message
+              await this.showToast(`Sale completed! generated and saved.`, 'success');
 
-      } catch (error) {
-        console.error('Error during report generation:', error);
-        await this.showToast('An error occurred while generating the report. Please try again.', 'danger');
-      } finally {
-        this.isLoading = false;
+              // Reset form and go back to first page
+              this.currentPage = 1;
+              this.summaryForm.reset();
+              this.initializeForm();
+              this.selectedBeer = null;
+              this.filteredBeers = [...this.stockData];
+              this.loadStock();
+
+            } else {
+              this.isLoading = false;
+              this.cdr.detectChanges();
+              await this.showToast(response?.message || 'Sale failed', 'danger');
+            }
+          },
+          error: async (error: any) => {
+            // await loading.dismiss();
+            this.isLoading = false;
+            this.cdr.detectChanges();
+            // console.error('Registration error:', error);
+
+            await this.showToast('Sale failed. Please try again.', 'danger');
+          }
+        });
+
+          } catch (pdfError) {
+            console.error('PDF generation error:', pdfError);
+            this.isLoading = false;
+            this.cdr.detectChanges();
+            await this.showToast('Error generating sales report. Please try again.', 'danger');
+          }
+        }, 0); // Execute in next tick to prevent UI blocking
+      } else {
+       this.isLoading= false;
+       this.cdr.detectChanges();
+        await this.showToast('Please fill in all required fields correctly.', 'warning');
       }
-    } else {
-      await this.showToast('Please fill in all required fields correctly.', 'warning');
-    }
   }
 
   onBeerSearch(event: any) {
@@ -488,9 +526,9 @@ export class HomePage implements OnInit {
         pdfBlob = await this.generateSalesReport(this.summaryForm.value);
       }
 
-      // Save the PDF locally first
+      // Save the PDF using platform-specific method
       const fileName = `sales-report-${new Date().toISOString().split('T')[0]}.pdf`;
-      saveAs(pdfBlob, fileName);
+      await this.savePDFFile(pdfBlob, fileName);
 
       // Upload to server (with report data if available)
       await this.uploadToServer(pdfBlob, reportFormData);
@@ -753,7 +791,7 @@ export class HomePage implements OnInit {
   }
 
   async savePDF(pdfBlob: Blob, fileName: string): Promise<void> {
-    saveAs(pdfBlob, fileName);
+    await this.savePDFFile(pdfBlob, fileName);
   }
 
   async saveSalePDF(pdfBlob: Blob): Promise<void> {
@@ -766,7 +804,7 @@ export class HomePage implements OnInit {
       `${String(now.getMinutes()).padStart(2, '0')}-` +
       `${String(now.getSeconds()).padStart(2, '0')}.pdf`;
 
-    saveAs(pdfBlob, fileName);
+    await this.savePDFFile(pdfBlob, fileName);
   }
 
   async generateDailyReport(reportData: any): Promise<Blob> {
@@ -926,6 +964,157 @@ export class HomePage implements OnInit {
       }
     }
   }
+
+  async savePDFFile(pdfBlob: Blob, fileName: string): Promise<void> {
+    if (Capacitor.isNativePlatform()) {
+      // Mobile app - use Capacitor Filesystem
+      try {
+        if (!fileName.endsWith('.pdf')) {
+          fileName += '.pdf';
+        }
+        fileName = fileName
+                  .replace(/\.pdf$/i, '')      // remove .pdf if exists
+                  .replace(/[^a-zA-Z0-9_-]/g, '_') // REMOVE ALL unsafe chars
+                  + '.pdf';
+                  
+        // Convert blob to base64
+        const base64Data = await this.blobToBase64(pdfBlob);
+
+        // 🔥 CRITICAL FIX: remove data:application/pdf;base64,
+        const cleanBase64 = base64Data;
+
+        console.log({
+                      fileName,
+                      fileNameLength: fileName.length,
+                      base64Length: cleanBase64.length,
+                      blobSize: pdfBlob.size
+                    });
+
+        // Try different directories in order of preference
+        let result: { uri: string; [key: string]: any } | undefined;
+        const directoriesToTry = [
+          { dir: Directory.Cache, name: 'Cache' }
+        ];
+
+        // Special handling for mobile - try downloads folder first
+        if (Capacitor.isNativePlatform()) {
+          try {
+            console.log('Trying to save to Downloads folder...');
+            // Try to save directly to Downloads subfolder
+            result = await Filesystem.writeFile({
+              path: `Downloads/${fileName}`,
+              data: cleanBase64,
+              directory: Directory.ExternalStorage
+            });
+            console.log('Successfully saved to Downloads folder');
+          } catch (downloadsError) {
+            console.warn('Downloads folder failed, trying external storage root:', downloadsError);
+            try {
+              // Fallback to external storage root
+              result = await Filesystem.writeFile({
+                path: fileName,
+                data: cleanBase64,
+                directory: Directory.ExternalStorage
+              });
+              console.log('Successfully saved to external storage');
+            } catch (externalError) {
+              console.warn('External storage also failed:', externalError);
+              // Continue with regular directory attempts
+            }
+          }
+        }
+
+        // If external storage didn't work (or we're not on Android), try other directories
+        if (!result) {
+          for (const { dir, name } of directoriesToTry) {
+            try {
+              console.log(`Attempting to save to ${name} directory...`);
+              result = await Filesystem.writeFile({
+                path: fileName,
+                data: cleanBase64,
+                directory: dir
+              });
+              console.log(`Successfully saved to ${name} directory`);
+              break;
+            } catch (error) {
+              console.warn(`Failed to save to ${name} directory:`, error);
+            if (dir === Directory.Cache) {
+              // If all directories fail, throw the last error
+              throw new Error(`Failed to save PDF to any accessible directory. Last error: ${error}`);
+            }
+            }
+          }
+        }
+
+        // Ensure result is defined (TypeScript safety check)
+        if (!result) {
+          throw new Error('Failed to save file to any directory');
+        }
+
+        // Try to share the file, with fallback options
+        try {
+          await Share.share({
+            title: 'AfriLounges Report',
+            text: 'Your report has been downloaded',
+            url: result.uri,
+            dialogTitle: 'Share Report'
+          });
+          console.log('File shared successfully via filesystem');
+        } catch (shareError) {
+          console.warn('Filesystem sharing failed, trying alternative method:', shareError);
+
+          // Fallback: Try to share using a data URL
+          try {
+            const dataUrl = `data:application/pdf;base64,${cleanBase64}`;
+            await Share.share({
+              title: 'AfriLounges Report',
+              text: 'Your report has been generated',
+              url: dataUrl,
+              dialogTitle: 'Share Report'
+            });
+            console.log('File shared successfully via data URL');
+          } catch (dataUrlError) {
+            console.error('Data URL sharing also failed:', dataUrlError);
+            // Final fallback: Just show a success message
+            this.showToast('Report saved successfully! Check your device storage.', 'success');
+          }
+        }
+
+        console.log('File saved successfully on mobile:', result.uri);
+        console.log('File path:', result.uri);
+        console.log('Full result object:', result);
+      } catch (error) {
+        console.error('Error saving file on mobile:', error);
+        throw error;
+      }
+    } else {
+      // Web browser - use file-saver
+      saveAs(pdfBlob, fileName);
+    }
+  }
+
+  private blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onerror = () => reject(new Error('Failed to read blob'));
+
+      reader.onloadend = () => {
+        const result = reader.result as string;
+
+        if (!result || !result.includes(',')) {
+          reject(new Error('Invalid base64 result'));
+          return;
+        }
+
+        // ✅ Return CLEAN base64 only (no data: header)
+        resolve(result.split(',')[1]);
+      };
+
+      reader.readAsDataURL(blob);
+    });
+  }
+
 
   async uploadToServer(pdfBlob: Blob, formData?: any): Promise<string> {
     const fileName = `africanLounges-report-${new Date().toISOString().split('T')[0]}.pdf`;

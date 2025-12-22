@@ -57,11 +57,13 @@ export class SettingsPage implements OnInit {
 
   changePassword() {
     console.log('Change password clicked');
+    this.router.navigate(['/update-password']);
     // Implement change password logic
   }
 
   viewProfile() {
     console.log('View profile clicked');
+    this.router.navigate(['/profiles']);
     // Implement view profile logic
   }
 
@@ -80,3 +82,5 @@ export class SettingsPage implements OnInit {
     this.router.navigate(['/login']);
   }
 }
+
+

@@ -7,9 +7,8 @@ import {
   IonCard, IonCardHeader, IonCardTitle, IonCardContent, 
   IonItem, IonLabel, IonInput, IonButton,
   IonIcon, IonSpinner, IonToast, IonRow, IonCol,
-  IonFab, IonFabButton
+  IonFab, IonFabButton, ToastController
 } from '@ionic/angular/standalone';
-import { ToastController } from '@ionic/angular';
 import { addIcons } from 'ionicons';
 import { logInOutline, eyeOutline, eyeOffOutline } from 'ionicons/icons';
 import { Login } from '../services/login';
@@ -79,7 +78,7 @@ export class LoginPage implements OnInit {
 
   async onSubmit() {
     if (this.loginForm.valid) {
-      // this.isLoading = true;
+      this.isLoading = true;
         
       try {
         // Get form values
@@ -89,6 +88,7 @@ export class LoginPage implements OnInit {
         this.loginService.login(formData).subscribe({
           next: async (response: any) => {
             this.isLoading = false;
+            console.log('Response', response);
             
             if (response && response.success) {
               await this.showToast('Login successful!', 'success');

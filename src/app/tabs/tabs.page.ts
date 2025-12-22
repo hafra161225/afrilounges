@@ -16,3 +16,5 @@ export class TabsPage {
     addIcons({ homeOutline, statsChartOutline, documentTextOutline, settingsOutline });
   }
 }
+
+

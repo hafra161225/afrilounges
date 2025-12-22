@@ -7,12 +7,10 @@ import {
   IonItem, IonInput, IonAlert, IonBadge, IonModal, IonSelect, IonSelectOption,
   IonLabel, IonSpinner, IonSkeletonText, IonRefresher, IonRefresherContent,
   IonInfiniteScroll, IonInfiniteScrollContent, InfiniteScrollCustomEvent,
-  RefresherCustomEvent
+  RefresherCustomEvent, AlertController, ToastController
 } from '@ionic/angular/standalone';
-import { AlertController, ToastController } from '@ionic/angular';
 import { addIcons } from 'ionicons';
 import * as allIcons from 'ionicons/icons';
-import { refreshOutline, trendingUpOutline, trendingDownOutline, searchOutline, closeOutline, createOutline, trashOutline } from 'ionicons/icons';
 import { AddStock } from '../../services/add-stock';
 import { GetStock } from '../../services/get-stock';
 import { DeleteStock } from '../../services/delete-stock';

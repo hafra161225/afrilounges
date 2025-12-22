@@ -490,3 +490,54 @@ ion-input, ion-datetime {
     }
   }
 }
+
+// Authentication Page Styles
+.auth-description {
+  text-align: center;
+  color: #6c757d;
+  margin-bottom: 24px;
+  font-size: 0.95rem;
+}
+
+.auth-summary {
+  margin: 24px 0;
+
+  .summary-card {
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+
+    ion-card-content {
+      padding: 16px;
+
+      h4 {
+        margin: 0 0 16px 0;
+        color: #495057;
+        font-size: 1.1rem;
+        font-weight: 600;
+        text-align: center;
+      }
+
+      .summary-item {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 8px;
+        font-size: 0.9rem;
+
+        &.total-line {
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px solid #dee2e6;
+          font-weight: 600;
+          font-size: 1rem;
+          color: #495057;
+        }
+      }
+
+      hr {
+        margin: 12px 0;
+        border: none;
+        border-top: 1px solid #dee2e6;
+      }
+    }
+  }
+}

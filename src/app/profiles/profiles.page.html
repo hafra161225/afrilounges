@@ -1,0 +1,316 @@
+<ion-header [translucent]="true">
+  <ion-toolbar>
+    <ion-buttons slot="start">
+      <ion-button (click)="gotoSettings()">
+        <ion-icon name="chevron-back-circle-outline" size="large"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+    <ion-title>Profiles</ion-title>
+    <ion-buttons slot="end">
+      <ion-button
+          (click)="openAddProfileModal()">
+        <ion-icon name="add-circle-outline" size="large"></ion-icon>
+      </ion-button>
+    </ion-buttons>
+  </ion-toolbar>
+</ion-header>
+
+<ion-content [fullscreen]="true">
+  <ion-refresher slot="fixed" (ionRefresh)="handleRefresh($event)">
+    <ion-refresher-content></ion-refresher-content>
+  </ion-refresher>
+  
+  <!-- Search Section -->
+  <ion-card class="search-card">
+    <ion-card-content>
+      <ion-item>
+        <ion-icon name="search-outline" slot="start"></ion-icon>
+        <ion-input
+          placeholder="Search beers by name or type..."
+          [(ngModel)]="searchTerm"
+          (ionInput)="onSearchChange($event)"
+          clearInput="true">
+        </ion-input>
+        <ion-button
+          *ngIf="searchTerm"
+          fill="clear"
+          slot="end"
+          (click)="clearSearch()">
+          <ion-icon name="close-outline"></ion-icon>
+        </ion-button>
+      </ion-item>
+    </ion-card-content>
+  </ion-card>
+
+  <!-- Here is the profile list -->
+  <ng-container *ngIf="!isLoading; else profiles">
+    <ion-list [insert]="true">
+      <ion-item-sliding *ngFor="let profile of profilesData">
+        <ion-item [button]="true">
+          <ion-avatar aria-hidden="true" slot="start">
+            <img alt="" src="https://ionicframework.com/docs/img/demos/avatar.svg" />
+          </ion-avatar>
+          <ion-label>
+            <h3>{{ profile.name }}</h3>
+            <p>{{ profile.outlet }}</p>
+          </ion-label>
+        </ion-item>
+        <ion-item-options slot="end">
+          <ion-item-option 
+            color="tertiary"
+            (click)="editProfile(profile)">
+            <ion-icon slot="icon-only" name="create-outline"></ion-icon>
+          </ion-item-option>
+          <ion-item-option 
+            color="danger" 
+            expandable="true"
+            (click)="deleteProfile(profile)">
+            <ion-icon slot="icon-only" name="trash"></ion-icon>
+          </ion-item-option>
+        </ion-item-options>
+      </ion-item-sliding>
+    </ion-list>
+  </ng-container>
+  <ng-template #profiles>
+    <ion-list [insert]="true">
+      <ion-item-sliding>
+        <ion-item [button]="true">
+          <ion-avatar aria-hidden="true" slot="start">
+            <ion-skeleton-text></ion-skeleton-text>
+          </ion-avatar>
+          <ion-label>
+            <h3>
+              <ion-skeleton-text></ion-skeleton-text>
+            </h3>
+            <p>
+              <ion-skeleton-text></ion-skeleton-text>
+            </p>
+          </ion-label>
+        </ion-item>
+        <ion-item-options slot="end">
+          <ion-item-option color="tertiary">
+              <ion-skeleton-text></ion-skeleton-text>
+          </ion-item-option>
+          <ion-item-option color="danger" expandable="true">
+            <ion-skeleton-text></ion-skeleton-text>
+          </ion-item-option>
+        </ion-item-options>
+      </ion-item-sliding>
+    </ion-list>
+  </ng-template>
+  
+  <!-- Add Item Modal -->
+  <ion-modal [isOpen]="isAddModalOpen" (willDismiss)="closeAddProfileModal()">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Add Profile</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="closeAddProfileModal()">Close</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+
+      <ion-content class="modal-content">
+        <form [formGroup]="addProfileForm" (ngSubmit)="addNewProfile()">
+          <ion-card>
+            <ion-card-content>
+
+              <!-- Outlet -->
+              <ion-item>
+                <ion-label position="floating">Outlet</ion-label>
+                <ion-input
+                  formControlName="outlet"
+                  placeholder="Enter profile outlet"
+                  required>
+                </ion-input>
+              </ion-item>
+
+              <!-- Name Field -->
+              <ion-item>
+                <ion-label position="floating">Profile Name</ion-label>
+                <ion-input
+                  formControlName="name"
+                  placeholder="Enter profile name"
+                  required>
+                </ion-input>
+              </ion-item>
+
+              <!-- Shots Field -->
+              <ion-item>
+                <ion-label position="floating">Password</ion-label>
+                <ion-input
+                  formControlName="password"
+                  type="password"
+                  placeholder="Enter profile's password"
+                  required>
+                  <ion-input-password-toggle slot="end"></ion-input-password-toggle>
+                </ion-input>
+              </ion-item>
+
+            </ion-card-content>
+          </ion-card>
+
+          <!-- Modal Actions -->
+          <ion-row class="modal-actions">
+            <ion-col size="6">
+              <ion-button
+                expand="block"
+                fill="outline"
+                (click)="closeAddProfileModal()"
+                type="button">
+                Cancel
+              </ion-button>
+            </ion-col>
+            <ion-col size="6">
+              <ion-button
+                expand="block"
+                color="primary"
+                type="submit"
+                [disabled]="isLoadingAdd || addProfileForm.invalid">
+                <ion-spinner *ngIf="isLoadingAdd" slot="start" name="crescent"></ion-spinner>
+                {{ isLoadingAdd ? 'Adding Profile...' : 'Add Profile' }}
+              </ion-button>
+            </ion-col>
+          </ion-row>
+        </form>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+
+  
+  <!-- Add Item Modal -->
+  <ion-modal [isOpen]="isEditModalOpen" (willDismiss)="closeEditProfileModal()">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Update Profile</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="closeEditProfileModal()">Close</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+
+      <ion-content class="modal-content">
+        <form [formGroup]="editProfileForm" (ngSubmit)="updateProfile()">
+          <ion-card>
+            <ion-card-content>
+
+              <!-- Outlet -->
+              <ion-item>
+                <ion-label position="floating">Outlet</ion-label>
+                <ion-input
+                  formControlName="outlet"
+                  placeholder="Enter profile outlet"
+                  required>
+                </ion-input>
+                <input type="hidden" formControlName="profileId" required/>
+              </ion-item>
+
+              <!-- Name Field -->
+              <ion-item>
+                <ion-label position="floating">Profile Name</ion-label>
+                <ion-input
+                  formControlName="name"
+                  placeholder="Enter profile name"
+                  required>
+                </ion-input>
+              </ion-item>
+
+              <!-- Shots Field -->
+              <ion-item>
+                <ion-label position="floating">Password</ion-label>
+                <ion-input
+                  formControlName="password"
+                  type="password"
+                  placeholder="Enter profile's password"
+                  required>
+                  <ion-input-password-toggle slot="end"></ion-input-password-toggle>
+                </ion-input>
+              </ion-item>
+
+            </ion-card-content>
+          </ion-card>
+
+          <!-- Modal Actions -->
+          <ion-row class="modal-actions">
+            <ion-col size="6">
+              <ion-button
+                expand="block"
+                fill="outline"
+                (click)="closeEditProfileModal()"
+                type="button">
+                Cancel
+              </ion-button>
+            </ion-col>
+            <ion-col size="6">
+              <ion-button
+                expand="block"
+                color="primary"
+                type="submit"
+                [disabled]="isLoadingEdit || editProfileForm.invalid">
+                <ion-spinner *ngIf="isLoadingEdit" slot="start" name="crescent"></ion-spinner>
+                {{ isLoadingAdd ? 'Updating Profile...' : 'Update Profile' }}
+              </ion-button>
+            </ion-col>
+          </ion-row>
+        </form>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+
+    <!-- Add Item Modal -->
+  <ion-modal [isOpen]="isDeleteModalOpen" (willDismiss)="closeDeleteProfileModal()">
+    <ng-template>
+      <ion-header>
+        <ion-toolbar>
+          <ion-title>Delete Profile</ion-title>
+          <ion-buttons slot="end">
+            <ion-button (click)="closeDeleteProfileModal()">Close</ion-button>
+          </ion-buttons>
+        </ion-toolbar>
+      </ion-header>
+
+      <ion-content class="modal-content">
+        <form [formGroup]="deleteProfileForm" (ngSubmit)="deleteProfileHere()">
+          <ion-card>
+            <ion-card-content>
+              <ion-text>Do you wish to delete <b>{{ profileName }}</b>?</ion-text>
+              <input type="hidden" formControlName="profileId" required/>
+            </ion-card-content>
+          </ion-card>
+
+          <!-- Modal Actions -->
+          <ion-row class="modal-actions">
+            <ion-col size="6">
+              <ion-button
+                expand="block"
+                fill="outline"
+                (click)="closeDeleteProfileModal()"
+                type="button">
+                Cancel
+              </ion-button>
+            </ion-col>
+            <ion-col size="6">
+              <ion-button
+                expand="block"
+                color="primary"
+                type="submit"
+                [disabled]="isLoadingDelete || deleteProfileForm.invalid">
+                <ion-spinner *ngIf="isLoadingDelete" slot="start" name="crescent"></ion-spinner>
+                {{ isLoadingAdd ? 'Deleting...' : 'Yes' }}
+              </ion-button>
+            </ion-col>
+          </ion-row>
+        </form>
+      </ion-content>
+    </ng-template>
+  </ion-modal>
+
+  <ion-infinite-scroll *ngIf="!isLoading && profilesCount>10" threshold="100px" (ionInfinite)="loadMoreProfiles($event)">
+    <ion-infinite-scroll-content
+      loadingSpinner="bubbles"
+      loadingText="Loading more trends...">
+    </ion-infinite-scroll-content>
+  </ion-infinite-scroll>
+</ion-content>

@@ -48,7 +48,17 @@ export const routes: Routes = [
   },
   {
     path: '',
-    redirectTo: 'login',
+    redirectTo: 'home',
     pathMatch: 'full',
+  },
+  {
+    path: 'profiles',
+    loadComponent: () => import('./profiles/profiles.page').then( m => m.ProfilesPage),
+    canActivate: [loginGuard] // 🔒 Protected!
+  },
+  {
+    path: 'update-password',
+    loadComponent: () => import('./update-password/update-password.page').then( m => m.UpdatePasswordPage),
+    canActivate: [loginGuard] // 🔒 Protected!
   },
 ];
